@@ -8,12 +8,12 @@ type Profile struct {
 	LastName     string         `json:"last_name"`
 	Username     string         `json:"username"`
 	ProfileImage string         `json:"profile_image_url"`
-	Bio          string         `json:"profile_bio"`
-	NumRays      string         `json:"num_rays_received"`
+	Bio          *string        `json:"profile_bio"`
+	NumRays      int            `json:"num_rays_received"`
 	Role         MembershipRole `json:"role"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    time.Time      `json:"deleted_at"`
+	DeletedAt    *time.Time     `json:"deleted_at"`
 }
 
 type MembershipRole string

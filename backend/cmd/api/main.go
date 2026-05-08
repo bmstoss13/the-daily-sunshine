@@ -1,19 +1,41 @@
 package main
 
 import (
-	"net/http"
+	"log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/github.com/bmstoss13/the-daily-sunshine/internal/config"
+	"github.com/github.com/bmstoss13/the-daily-sunshine/internal/handler"
+	"github.com/github.com/bmstoss13/the-daily-sunshine/internal/middleware"
 )
 
 func main() {
-	r := gin.Default()
+	if err := config.InitDB(); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer config.DB.Close()
 
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "pong",
-		})
-	})
+	router := gin.Default()
+	api := router.Group("/api/v1")
 
-	r.Run()
+	// --- PUBLIC ROUTES (No auth required) ---
+	publicProfiles := api.Group("/profiles")
+	{
+		// Anyone can view a profile
+		publicProfiles.GET("/:id", handler.GetProfile)
+	}
+
+	// --- PROTECTED ROUTES (Require valid JWT) ---
+	protected := api.Group("/")
+	protected.Use(middleware.RequireAuth()) // <--- Attach the bouncer here!
+	{
+		// Example of a protected route:
+		// protected.PUT("/profiles/update", handler.UpdateProfile)
+		// protected.POST("/posts", handler.CreatePost)
+	}
+
+	log.Println("Starting The Daily Sunshine API on port 8080...")
+	if err := router.Run(":8080"); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
