@@ -4,14 +4,25 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/github.com/bmstoss13/the-daily-sunshine/internal/domain"
+	"github.com/bmstoss13/the-daily-sunshine/internal/domain"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+type PostgresProfileRepository struct {
+	db *pgxpool.Pool
+}
+
+func NewPostgresProfileRepository(db *pgxpool.Pool) *PostgresProfileRepository {
+	return &PostgresProfileRepository{
+		db: db,
+	}
+}
 
 /*
 * Fetch profile from the id
 **/
-func GetProfileFromID(ctx context.Context, userID string, profileID string) (domain.Profile, error) {
+func (r *PostgresProfileRepository) GetProfileFromID(ctx context.Context, userID string, profileID string) (domain.Profile, error) {
 
 	pgProfileID, err := StringToPgUUID(profileID)
 	if err != nil {
@@ -20,7 +31,7 @@ func GetProfileFromID(ctx context.Context, userID string, profileID string) (dom
 
 	var fetchedProfile domain.Profile
 
-	err = WithRLS(ctx, userID, func(tx pgx.Tx) error {
+	err = WithRLS(ctx, r.db, userID, func(tx pgx.Tx) error {
 		q := New(tx)
 
 		sqlcProfile, err := q.GetProfileByID(ctx, pgProfileID)
@@ -37,10 +48,10 @@ func GetProfileFromID(ctx context.Context, userID string, profileID string) (dom
 }
 
 // Function for getting profile from username
-func GetProfileFromUsername(ctx context.Context, userID string, username string) (domain.Profile, error) {
+func (r *PostgresProfileRepository) GetProfileFromUsername(ctx context.Context, userID string, username string) (domain.Profile, error) {
 	var fetchedProfile domain.Profile
 
-	err := WithRLS(ctx, userID, func(tx pgx.Tx) error {
+	err := WithRLS(ctx, r.db, userID, func(tx pgx.Tx) error {
 		q := New(tx)
 
 		sqlcProfile, err := q.GetProfileByUsername(ctx, username)
@@ -56,9 +67,9 @@ func GetProfileFromUsername(ctx context.Context, userID string, username string)
 	return fetchedProfile, err
 }
 
-func CheckProfileUsernameExists(ctx context.Context, userID string, username string) (bool, error) {
+func (r *PostgresProfileRepository) CheckProfileUsernameExists(ctx context.Context, userID string, username string) (bool, error) {
 	var doesExist bool
-	err := WithRLS(ctx, userID, func(tx pgx.Tx) error {
+	err := WithRLS(ctx, r.db, userID, func(tx pgx.Tx) error {
 		q := New(tx)
 
 		exists, checkErr := q.CheckUsernameExists(ctx, username)
@@ -73,9 +84,9 @@ func CheckProfileUsernameExists(ctx context.Context, userID string, username str
 	return doesExist, err
 }
 
-func GetListOfProfiles(ctx context.Context, userID string, limit int32, offset int32) ([]domain.Profile, error) {
+func (r *PostgresProfileRepository) GetListOfProfiles(ctx context.Context, userID string, limit int32, offset int32) ([]domain.Profile, error) {
 	var profileList []domain.Profile
-	err := WithRLS(ctx, userID, func(tx pgx.Tx) error {
+	err := WithRLS(ctx, r.db, userID, func(tx pgx.Tx) error {
 		q := New(tx)
 
 		sqlcProfileList, listErr := q.ListProfiles(ctx, ListProfilesParams{limit, offset})
@@ -95,9 +106,9 @@ func GetListOfProfiles(ctx context.Context, userID string, limit int32, offset i
 }
 
 // takes in user profile with temp id
-func CreateProfile(ctx context.Context, userID string, newProfile domain.Profile) (domain.Profile, error) {
+func (r *PostgresProfileRepository) CreateProfile(ctx context.Context, userID string, newProfile domain.Profile) (domain.Profile, error) {
 	var createdProfile domain.Profile
-	err := WithRLS(ctx, userID, func(tx pgx.Tx) error {
+	err := WithRLS(ctx, r.db, userID, func(tx pgx.Tx) error {
 		q := New(tx)
 
 		pgID, err := StringToPgUUID(newProfile.ID)

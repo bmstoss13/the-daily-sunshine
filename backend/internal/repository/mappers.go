@@ -3,7 +3,7 @@ package repository
 import (
 	"fmt"
 
-	"github.com/github.com/bmstoss13/the-daily-sunshine/internal/domain"
+	"github.com/bmstoss13/the-daily-sunshine/internal/domain"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 

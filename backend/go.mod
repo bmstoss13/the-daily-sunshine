@@ -1,4 +1,4 @@
-module github.com/github.com/bmstoss13/the-daily-sunshine
+module github.com/bmstoss13/the-daily-sunshine
 
 go 1.25.4
 

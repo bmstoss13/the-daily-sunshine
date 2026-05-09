@@ -4,11 +4,22 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/bmstoss13/the-daily-sunshine/internal/domain"
+	"github.com/bmstoss13/the-daily-sunshine/internal/helpers"
+	"github.com/bmstoss13/the-daily-sunshine/internal/service"
 	"github.com/gin-gonic/gin"
-	"github.com/github.com/bmstoss13/the-daily-sunshine/internal/domain"
-	"github.com/github.com/bmstoss13/the-daily-sunshine/internal/helpers"
-	"github.com/github.com/bmstoss13/the-daily-sunshine/internal/service"
 )
+
+type ProfileHandler struct {
+	// hold a pointer to the service so all methods can use it
+	profileService *service.ProfileService
+}
+
+func NewProfileHandler(svc *service.ProfileService) *ProfileHandler {
+	return &ProfileHandler{
+		profileService: svc,
+	}
+}
 
 // `binding:"required"` tags tell Gin to automatically reject the request
 // if frontend forgets to send those fields
@@ -21,11 +32,11 @@ type CreateProfileRequest struct {
 	Bio          *string `json:"bio"` // Pointer makes it optional in JSON
 }
 
-func GetProfile(c *gin.Context) {
+func (h *ProfileHandler) GetProfile(c *gin.Context) {
 	targetProfileID := c.Param("id")
 	requestingUserID := c.GetString("userID")
 
-	profile, err := service.FetchProfileByID(c.Request.Context(), requestingUserID, targetProfileID)
+	profile, err := h.profileService.FetchProfileByID(c.Request.Context(), requestingUserID, targetProfileID)
 
 	if err != nil {
 
@@ -41,11 +52,11 @@ func GetProfile(c *gin.Context) {
 	})
 }
 
-func GetProfileFromUsernameHandler(c *gin.Context) {
+func (h *ProfileHandler) GetProfileFromUsernameHandler(c *gin.Context) {
 	targetUsername := c.Param("username")
 	requestingUserID := c.GetString("userID")
 
-	profile, err := service.FetchProfileByUsername(c.Request.Context(), requestingUserID, targetUsername)
+	profile, err := h.profileService.FetchProfileByUsername(c.Request.Context(), requestingUserID, targetUsername)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -60,11 +71,11 @@ func GetProfileFromUsernameHandler(c *gin.Context) {
 	})
 }
 
-func GetUsernameAvailability(c *gin.Context) {
+func (h *ProfileHandler) GetUsernameAvailability(c *gin.Context) {
 	usernameToCheck := c.Query("username") // Extracts from ?username=xxx
 	requestingUserID := c.GetString("userID")
 
-	isTaken, err := service.IsUsernameTaken(c.Request.Context(), requestingUserID, usernameToCheck)
+	isTaken, err := h.profileService.IsUsernameTaken(c.Request.Context(), requestingUserID, usernameToCheck)
 
 	if err != nil {
 		if usernameToCheck == "" {
@@ -83,7 +94,7 @@ func GetUsernameAvailability(c *gin.Context) {
 	})
 }
 
-func GetProfileList(c *gin.Context) {
+func (h *ProfileHandler) GetProfileList(c *gin.Context) {
 
 	var limit int32 = 20
 	var offset int32 = 0
@@ -109,7 +120,7 @@ func GetProfileList(c *gin.Context) {
 	}
 
 	requestingUserID := c.GetString("userID")
-	profileList, err := service.FetchListOfProfiles(c.Request.Context(), requestingUserID, limit, offset)
+	profileList, err := h.profileService.FetchListOfProfiles(c.Request.Context(), requestingUserID, limit, offset)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -124,7 +135,7 @@ func GetProfileList(c *gin.Context) {
 	})
 }
 
-func CreateProfileHandler(c *gin.Context) {
+func (h *ProfileHandler) CreateProfileHandler(c *gin.Context) {
 	requestingUserID := c.GetString("userID")
 
 	var req CreateProfileRequest
@@ -146,7 +157,7 @@ func CreateProfileHandler(c *gin.Context) {
 		Bio:             req.Bio,
 	}
 
-	createdProfile, err := service.CreateUserProfile(c.Request.Context(), requestingUserID, newProfile)
+	createdProfile, err := h.profileService.CreateUserProfile(c.Request.Context(), requestingUserID, newProfile)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "already taken") {
