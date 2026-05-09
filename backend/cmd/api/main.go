@@ -25,6 +25,7 @@ func main() {
 		publicProfiles.GET("/id/:id", handler.GetProfile)
 		publicProfiles.GET("/username/:username", handler.GetProfileFromUsernameHandler)
 		publicProfiles.GET("/check-username", handler.GetUsernameAvailability)
+		publicProfiles.GET("/list", handler.GetProfileList) // example: /api/v1/profiles/list?limit=20&offset=20
 	}
 
 	// publicPosts := api.Group("/posts")

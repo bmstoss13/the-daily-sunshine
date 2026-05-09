@@ -72,3 +72,24 @@ func CheckProfileUsernameExists(ctx context.Context, userID string, username str
 
 	return doesExist, err
 }
+
+func GetListOfProfiles(ctx context.Context, userID string, limit int32, offset int32) ([]domain.Profile, error) {
+	var profileList []domain.Profile
+	err := WithRLS(ctx, userID, func(tx pgx.Tx) error {
+		q := New(tx)
+
+		sqlcProfileList, listErr := q.ListProfiles(ctx, ListProfilesParams{limit, offset})
+		if listErr != nil {
+			return fmt.Errorf("[profile_repo.go] GetListOfProfiles: An error occurred while retrieving list of profiles with limit %v and offset %v: %w", limit, offset, listErr)
+		}
+
+		profileList = make([]domain.Profile, len(sqlcProfileList))
+
+		for i, p := range sqlcProfileList {
+			profileList[i] = ConvertProfile(p)
+		}
+		return nil
+	})
+
+	return profileList, err
+}

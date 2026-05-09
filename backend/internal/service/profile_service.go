@@ -28,6 +28,8 @@ func FetchProfileByUsername(ctx context.Context, requestingUserID string, target
 		return domain.Profile{}, fmt.Errorf("[profile_service.go] target username is required.")
 	}
 
+	// Add business logic in the future (i.e. blocked users)
+
 	profile, err := repository.GetProfileFromUsername(ctx, requestingUserID, targetUsername)
 	if err != nil {
 		return domain.Profile{}, fmt.Errorf("[profile_service.go] failed to get profile from username %s with id %s: %w", targetUsername, requestingUserID, err)
@@ -47,4 +49,17 @@ func IsUsernameTaken(ctx context.Context, requestingUserID string, usernameToChe
 	}
 
 	return doesExist, nil
+}
+
+func FetchListOfProfiles(ctx context.Context, requestingUserID string, limit int32, offset int32) ([]domain.Profile, error) {
+	//guardrail to prevent pulling over 100 profiles at a time
+	if limit > 100 {
+		limit = 100
+	}
+	profileList, err := repository.GetListOfProfiles(ctx, requestingUserID, limit, offset)
+	if err != nil {
+		return []domain.Profile{}, fmt.Errorf("[profile_service.go] FetchListOfProfiles: failed to get list of profiles with limit %v and offset %v with id %s: %w", limit, offset, requestingUserID, err)
+	}
+
+	return profileList, nil
 }
