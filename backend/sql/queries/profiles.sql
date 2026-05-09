@@ -23,10 +23,11 @@ INSERT INTO profiles (
     first_name, 
     last_name, 
     username, 
+    role,
     profile_image_url, 
     profile_bio
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5, $6, $7
 )
 RETURNING *;
 

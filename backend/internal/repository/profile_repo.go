@@ -93,3 +93,42 @@ func GetListOfProfiles(ctx context.Context, userID string, limit int32, offset i
 
 	return profileList, err
 }
+
+// takes in user profile with temp id
+func CreateProfile(ctx context.Context, userID string, newProfile domain.Profile) (domain.Profile, error) {
+	var createdProfile domain.Profile
+	err := WithRLS(ctx, userID, func(tx pgx.Tx) error {
+		q := New(tx)
+
+		pgID, err := StringToPgUUID(newProfile.ID)
+		if err != nil {
+			return fmt.Errorf("[profile_repo.go] CreateProfile: invalid profile ID format: %w", err)
+		}
+
+		params := CreateProfileParams{
+			ID:        pgID,
+			FirstName: newProfile.FirstName,
+			LastName:  newProfile.LastName,
+			Username:  newProfile.Username,
+			Role:      string(newProfile.Role),
+		}
+
+		if newProfile.ProfileImageUrl != "" {
+			params.ProfileImageUrl = &newProfile.ProfileImageUrl
+		}
+
+		if newProfile.Bio != nil {
+			params.ProfileBio = []byte(*newProfile.Bio)
+		}
+
+		sqlcProfile, err := q.CreateProfile(ctx, params)
+		if err != nil {
+			return fmt.Errorf("[profile_repo.go] CreateProfile: failed to insert profile: %w", err)
+		}
+
+		createdProfile = ConvertProfile(sqlcProfile)
+		return nil
+	})
+
+	return createdProfile, err
+}

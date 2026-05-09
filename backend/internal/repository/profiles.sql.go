@@ -30,10 +30,11 @@ INSERT INTO profiles (
     first_name, 
     last_name, 
     username, 
+    role,
     profile_image_url, 
     profile_bio
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5, $6, $7
 )
 RETURNING id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, role, created_at, updated_at, deleted_at
 `
@@ -43,6 +44,7 @@ type CreateProfileParams struct {
 	FirstName       string      `json:"first_name"`
 	LastName        string      `json:"last_name"`
 	Username        string      `json:"username"`
+	Role            string      `json:"role"`
 	ProfileImageUrl *string     `json:"profile_image_url"`
 	ProfileBio      []byte      `json:"profile_bio"`
 }
@@ -53,6 +55,7 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 		arg.FirstName,
 		arg.LastName,
 		arg.Username,
+		arg.Role,
 		arg.ProfileImageUrl,
 		arg.ProfileBio,
 	)

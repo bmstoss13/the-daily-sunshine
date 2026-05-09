@@ -37,7 +37,7 @@ func main() {
 	protected := api.Group("/")
 	protected.Use(middleware.RequireAuth())
 	{
-
+		protected.POST("/profiles", handler.CreateProfileHandler)
 	}
 
 	log.Println("Starting The Daily Sunshine API on port 8080...")

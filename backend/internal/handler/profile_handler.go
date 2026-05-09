@@ -2,11 +2,24 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/github.com/bmstoss13/the-daily-sunshine/internal/domain"
 	"github.com/github.com/bmstoss13/the-daily-sunshine/internal/helpers"
 	"github.com/github.com/bmstoss13/the-daily-sunshine/internal/service"
 )
+
+// `binding:"required"` tags tell Gin to automatically reject the request
+// if frontend forgets to send those fields
+type CreateProfileRequest struct {
+	FirstName    string  `json:"first_name" binding:"required"`
+	LastName     string  `json:"last_name" binding:"required"`
+	Username     string  `json:"username" binding:"required"`
+	Role         string  `json:"role" binding:"required"`
+	ProfileImage string  `json:"profile_image_url"`
+	Bio          *string `json:"bio"` // Pointer makes it optional in JSON
+}
 
 func GetProfile(c *gin.Context) {
 	targetProfileID := c.Param("id")
@@ -108,5 +121,46 @@ func GetProfileList(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"data": profileList,
+	})
+}
+
+func CreateProfileHandler(c *gin.Context) {
+	requestingUserID := c.GetString("userID")
+
+	var req CreateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid JSON payload",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	newProfile := domain.Profile{
+		ID:              requestingUserID,
+		FirstName:       req.FirstName,
+		LastName:        req.LastName,
+		Username:        req.Username,
+		Role:            domain.MembershipRole(req.Role),
+		ProfileImageUrl: req.ProfileImage,
+		Bio:             req.Bio,
+	}
+
+	createdProfile, err := service.CreateUserProfile(c.Request.Context(), requestingUserID, newProfile)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "already taken") {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to create profile",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"data": createdProfile,
 	})
 }

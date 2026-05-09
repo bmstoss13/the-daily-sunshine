@@ -45,7 +45,7 @@ func IsUsernameTaken(ctx context.Context, requestingUserID string, usernameToChe
 
 	doesExist, err := repository.CheckProfileUsernameExists(ctx, requestingUserID, usernameToCheck)
 	if err != nil {
-		return true, fmt.Errorf("[profile_service.go] IsUsernameTaken: failed to get check if username %s exists from user with id %s: %w", usernameToCheck, requestingUserID, err)
+		return true, fmt.Errorf("[profile_service.go] IsUsernameTaken: failed to check if username %s exists from user with id %s: %w", usernameToCheck, requestingUserID, err)
 	}
 
 	return doesExist, nil
@@ -62,4 +62,26 @@ func FetchListOfProfiles(ctx context.Context, requestingUserID string, limit int
 	}
 
 	return profileList, nil
+}
+
+func CreateUserProfile(ctx context.Context, requestingUserID string, newProfile domain.Profile) (domain.Profile, error) {
+	if newProfile.Username == "" {
+		return domain.Profile{}, fmt.Errorf("[profile_service.go] CreateUserProfile: username is required")
+	}
+
+	usernameExists, err := repository.CheckProfileUsernameExists(ctx, requestingUserID, newProfile.Username)
+	if err != nil {
+		return domain.Profile{}, fmt.Errorf("[profile_service.go] CreateUserProfile: failed to check if username %s exists from user with id %s: %w", newProfile.Username, requestingUserID, err)
+	}
+
+	if usernameExists {
+		return domain.Profile{}, fmt.Errorf("the username '%s' is already taken", newProfile.Username)
+	}
+
+	createdProfile, err := repository.CreateProfile(ctx, requestingUserID, newProfile)
+	if err != nil {
+		return domain.Profile{}, fmt.Errorf("[profile_service.go] CreateUserProfile: failed to insert into database: %w", err)
+	}
+
+	return createdProfile, nil
 }
