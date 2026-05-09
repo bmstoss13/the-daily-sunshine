@@ -31,6 +31,24 @@ type mockProfileRepo struct {
 	lastCreatedProfileArg domain.Profile
 }
 
+type mockImageStorage struct {
+	mockURL         string
+	mockUploadError error
+	uploadCalled    bool
+	lastFileBytes   []byte
+	lastFileName    string
+}
+
+func (m *mockImageStorage) UploadProfilePicture(_ context.Context, fileBytes []byte, fileName string) (string, error) {
+	m.uploadCalled = true
+	m.lastFileBytes = append([]byte(nil), fileBytes...)
+	m.lastFileName = fileName
+	if m.mockUploadError != nil {
+		return "", m.mockUploadError
+	}
+	return m.mockURL, nil
+}
+
 func (m *mockProfileRepo) GetProfileFromID(_ context.Context, userID string, targetProfileID string) (domain.Profile, error) {
 	m.getByIDCalled = true
 	m.lastUserID = userID
@@ -73,7 +91,8 @@ func (m *mockProfileRepo) CreateProfile(_ context.Context, userID string, newPro
 func TestProfileService_FetchProfileByID(t *testing.T) {
 	t.Run("returns validation error when target profile ID is empty", func(t *testing.T) {
 		repo := &mockProfileRepo{}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
 		profile, err := service.FetchProfileByID(context.Background(), "requester-1", "")
 		if err == nil {
@@ -93,7 +112,8 @@ func TestProfileService_FetchProfileByID(t *testing.T) {
 	t.Run("returns wrapped repository error", func(t *testing.T) {
 		repoErr := errors.New("database timeout")
 		repo := &mockProfileRepo{mockRetrieveError: repoErr}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
 		_, err := service.FetchProfileByID(context.Background(), "requester-1", "profile-9")
 		if err == nil {
@@ -113,7 +133,8 @@ func TestProfileService_FetchProfileByID(t *testing.T) {
 	t.Run("returns profile when repository succeeds", func(t *testing.T) {
 		expected := domain.Profile{ID: "profile-9", Username: "sunshine"}
 		repo := &mockProfileRepo{mockProfile: expected}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
 		profile, err := service.FetchProfileByID(context.Background(), "requester-1", "profile-9")
 		if err != nil {
@@ -131,7 +152,8 @@ func TestProfileService_FetchProfileByID(t *testing.T) {
 func TestProfileService_FetchProfileByUsername(t *testing.T) {
 	t.Run("returns validation error when username is empty", func(t *testing.T) {
 		repo := &mockProfileRepo{}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
 		profile, err := service.FetchProfileByUsername(context.Background(), "requester-1", "")
 		if err == nil {
@@ -151,7 +173,8 @@ func TestProfileService_FetchProfileByUsername(t *testing.T) {
 	t.Run("returns wrapped repository error", func(t *testing.T) {
 		repoErr := errors.New("lookup failed")
 		repo := &mockProfileRepo{mockRetrieveError: repoErr}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
 		_, err := service.FetchProfileByUsername(context.Background(), "requester-1", "sunshine")
 		if err == nil {
@@ -168,7 +191,8 @@ func TestProfileService_FetchProfileByUsername(t *testing.T) {
 	t.Run("returns profile when repository succeeds", func(t *testing.T) {
 		expected := domain.Profile{ID: "profile-9", Username: "sunshine"}
 		repo := &mockProfileRepo{mockProfile: expected}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
 		profile, err := service.FetchProfileByUsername(context.Background(), "requester-1", "sunshine")
 		if err != nil {
@@ -186,7 +210,8 @@ func TestProfileService_FetchProfileByUsername(t *testing.T) {
 func TestProfileService_IsUsernameTaken(t *testing.T) {
 	t.Run("returns validation error when username is empty", func(t *testing.T) {
 		repo := &mockProfileRepo{}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
 		taken, err := service.IsUsernameTaken(context.Background(), "requester-1", "")
 		if err == nil {
@@ -206,7 +231,8 @@ func TestProfileService_IsUsernameTaken(t *testing.T) {
 	t.Run("returns wrapped repository error", func(t *testing.T) {
 		repoErr := errors.New("check failed")
 		repo := &mockProfileRepo{mockCheckError: repoErr}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
 		taken, err := service.IsUsernameTaken(context.Background(), "requester-1", "sunshine")
 		if err == nil {
@@ -225,7 +251,8 @@ func TestProfileService_IsUsernameTaken(t *testing.T) {
 
 	t.Run("returns repository result when username check succeeds", func(t *testing.T) {
 		repo := &mockProfileRepo{mockUsernameExists: false}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
 		taken, err := service.IsUsernameTaken(context.Background(), "requester-1", "sunshine")
 		if err != nil {
@@ -244,7 +271,8 @@ func TestProfileService_FetchListOfProfiles(t *testing.T) {
 	t.Run("returns wrapped repository error", func(t *testing.T) {
 		repoErr := errors.New("query failed")
 		repo := &mockProfileRepo{mockRetrieveError: repoErr}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
 		profiles, err := service.FetchListOfProfiles(context.Background(), "requester-1", 25, 10)
 		if err == nil {
@@ -264,7 +292,8 @@ func TestProfileService_FetchListOfProfiles(t *testing.T) {
 	t.Run("caps limit at one hundred before calling repository", func(t *testing.T) {
 		expected := []domain.Profile{{ID: "1", Username: "sunny"}, {ID: "2", Username: "brighter"}}
 		repo := &mockProfileRepo{mockProfileList: expected}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
 		profiles, err := service.FetchListOfProfiles(context.Background(), "requester-1", 250, 5)
 		if err != nil {
@@ -290,9 +319,10 @@ func TestProfileService_CreateUserProfile(t *testing.T) {
 
 	t.Run("returns validation error when username is empty", func(t *testing.T) {
 		repo := &mockProfileRepo{}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
-		created, err := service.CreateUserProfile(context.Background(), "requester-1", domain.Profile{})
+		created, err := service.CreateUserProfile(context.Background(), "requester-1", domain.Profile{}, nil, "")
 		if err == nil {
 			t.Fatal("expected error but got nil")
 		}
@@ -310,9 +340,10 @@ func TestProfileService_CreateUserProfile(t *testing.T) {
 	t.Run("returns wrapped error when username lookup fails", func(t *testing.T) {
 		repoErr := errors.New("lookup failed")
 		repo := &mockProfileRepo{mockCheckError: repoErr}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
-		_, err := service.CreateUserProfile(context.Background(), "requester-1", baseProfile)
+		_, err := service.CreateUserProfile(context.Background(), "requester-1", baseProfile, nil, "")
 		if err == nil {
 			t.Fatal("expected error but got nil")
 		}
@@ -329,9 +360,10 @@ func TestProfileService_CreateUserProfile(t *testing.T) {
 
 	t.Run("returns error when username is already taken", func(t *testing.T) {
 		repo := &mockProfileRepo{mockUsernameExists: true}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
-		created, err := service.CreateUserProfile(context.Background(), "requester-1", baseProfile)
+		created, err := service.CreateUserProfile(context.Background(), "requester-1", baseProfile, nil, "")
 		if err == nil {
 			t.Fatal("expected error but got nil")
 		}
@@ -352,9 +384,10 @@ func TestProfileService_CreateUserProfile(t *testing.T) {
 			mockUsernameExists: false,
 			mockCreateError:    repoErr,
 		}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
-		_, err := service.CreateUserProfile(context.Background(), "requester-1", baseProfile)
+		_, err := service.CreateUserProfile(context.Background(), "requester-1", baseProfile, nil, "")
 		if err == nil {
 			t.Fatal("expected error but got nil")
 		}
@@ -370,17 +403,21 @@ func TestProfileService_CreateUserProfile(t *testing.T) {
 		if !reflect.DeepEqual(repo.lastCreatedProfileArg, baseProfile) {
 			t.Fatalf("expected create to receive %#v, got %#v", baseProfile, repo.lastCreatedProfileArg)
 		}
+		if imageStorage.uploadCalled {
+			t.Fatal("expected image storage not to be called without image bytes")
+		}
 	})
 
-	t.Run("creates profile when username is available", func(t *testing.T) {
+	t.Run("creates profile when username is available without image upload", func(t *testing.T) {
 		expected := baseProfile
 		repo := &mockProfileRepo{
 			mockUsernameExists: false,
 			mockProfile:        expected,
 		}
-		service := NewProfileService(repo)
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
 
-		created, err := service.CreateUserProfile(context.Background(), "requester-1", baseProfile)
+		created, err := service.CreateUserProfile(context.Background(), "requester-1", baseProfile, nil, "")
 		if err != nil {
 			t.Fatalf("expected nil error, got %v", err)
 		}
@@ -392,6 +429,71 @@ func TestProfileService_CreateUserProfile(t *testing.T) {
 		}
 		if repo.lastUserID != "requester-1" {
 			t.Fatalf("expected repo to receive requester-1, got %s", repo.lastUserID)
+		}
+		if imageStorage.uploadCalled {
+			t.Fatal("expected image storage not to be called without image bytes")
+		}
+	})
+
+	t.Run("returns wrapped error when image upload fails", func(t *testing.T) {
+		repo := &mockProfileRepo{mockUsernameExists: false}
+		imageStorage := &mockImageStorage{mockUploadError: errors.New("r2 unavailable")}
+		service := NewProfileService(repo, imageStorage)
+		imageBytes := []byte{0x01, 0x02, 0x03}
+
+		created, err := service.CreateUserProfile(context.Background(), "requester-1", baseProfile, imageBytes, ".jpg")
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+		if !strings.Contains(err.Error(), "failed to upload profile picture") {
+			t.Fatalf("expected upload error message, got %v", err)
+		}
+		if created != (domain.Profile{}) {
+			t.Fatalf("expected empty profile, got %#v", created)
+		}
+		if !imageStorage.uploadCalled {
+			t.Fatal("expected image storage to be called")
+		}
+		if imageStorage.lastFileName != "profiles/requester-1/avatar.jpg" {
+			t.Fatalf("expected upload file name profiles/requester-1/avatar.jpg, got %s", imageStorage.lastFileName)
+		}
+		if !reflect.DeepEqual(imageStorage.lastFileBytes, imageBytes) {
+			t.Fatalf("expected uploaded bytes %#v, got %#v", imageBytes, imageStorage.lastFileBytes)
+		}
+		if repo.createProfileCalled {
+			t.Fatal("expected repository create not to be called when upload fails")
+		}
+	})
+
+	t.Run("uploads image and saves returned URL before creating profile", func(t *testing.T) {
+		expected := baseProfile
+		expected.ProfileImageUrl = "https://cdn.example.com/profiles/requester-1/avatar.jpg"
+		repo := &mockProfileRepo{
+			mockUsernameExists: false,
+			mockProfile:        expected,
+		}
+		imageStorage := &mockImageStorage{mockURL: expected.ProfileImageUrl}
+		service := NewProfileService(repo, imageStorage)
+		imageBytes := []byte{0xFF, 0xD8, 0xFF}
+
+		created, err := service.CreateUserProfile(context.Background(), "requester-1", baseProfile, imageBytes, ".jpg")
+		if err != nil {
+			t.Fatalf("expected nil error, got %v", err)
+		}
+		if !reflect.DeepEqual(created, expected) {
+			t.Fatalf("expected %#v, got %#v", expected, created)
+		}
+		if !imageStorage.uploadCalled {
+			t.Fatal("expected image storage to be called")
+		}
+		if imageStorage.lastFileName != "profiles/requester-1/avatar.jpg" {
+			t.Fatalf("expected upload file name profiles/requester-1/avatar.jpg, got %s", imageStorage.lastFileName)
+		}
+		if !reflect.DeepEqual(imageStorage.lastFileBytes, imageBytes) {
+			t.Fatalf("expected uploaded bytes %#v, got %#v", imageBytes, imageStorage.lastFileBytes)
+		}
+		if repo.lastCreatedProfileArg.ProfileImageUrl != expected.ProfileImageUrl {
+			t.Fatalf("expected created profile image URL %s, got %s", expected.ProfileImageUrl, repo.lastCreatedProfileArg.ProfileImageUrl)
 		}
 	})
 }

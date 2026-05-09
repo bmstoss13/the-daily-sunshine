@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/bmstoss13/the-daily-sunshine/internal/config"
@@ -8,18 +9,36 @@ import (
 	"github.com/bmstoss13/the-daily-sunshine/internal/middleware"
 	"github.com/bmstoss13/the-daily-sunshine/internal/repository"
 	"github.com/bmstoss13/the-daily-sunshine/internal/service"
+	"github.com/bmstoss13/the-daily-sunshine/internal/storage"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	// We use a context to initialize our services so they can timeout if the network is down
+	ctx := context.Background()
+
 	if err := config.InitDB(); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer config.DB.Close()
 
+	//Initialize Cloudflare R2
+	r2Client, err := config.InitR2(ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize Cloudflare R2: %v", err)
+	}
+
+	//Initialize Upstash Redis
+	// redisClient, err := config.InitRedis(ctx)
+	// if err != nil {
+	// 	log.Fatalf("Failed to initialize Redis: %v", err)
+	// }
+
+	imageStorage := storage.NewCloudflareR2Storage(r2Client)
+
 	//Create DB layer
 	profileRepo := repository.NewPostgresProfileRepository(config.DB)
-	profileSvc := service.NewProfileService(profileRepo)
+	profileSvc := service.NewProfileService(profileRepo, imageStorage)
 	profileHandler := handler.NewProfileHandler(profileSvc)
 
 	router := gin.Default()

@@ -15,13 +15,19 @@ type ProfileRepository interface {
 	CreateProfile(ctx context.Context, userID string, newProfile domain.Profile) (domain.Profile, error)
 }
 
-type ProfileService struct {
-	repo ProfileRepository
+type ImageStorage interface {
+	UploadProfilePicture(ctx context.Context, fileBytes []byte, fileName string) (string, error)
 }
 
-func NewProfileService(repo ProfileRepository) *ProfileService {
+type ProfileService struct {
+	repo         ProfileRepository
+	imageStorage ImageStorage
+}
+
+func NewProfileService(repo ProfileRepository, imageStorage ImageStorage) *ProfileService {
 	return &ProfileService{
-		repo: repo,
+		repo:         repo,
+		imageStorage: imageStorage,
 	}
 }
 
@@ -81,7 +87,7 @@ func (s *ProfileService) FetchListOfProfiles(ctx context.Context, requestingUser
 	return profileList, nil
 }
 
-func (s *ProfileService) CreateUserProfile(ctx context.Context, requestingUserID string, newProfile domain.Profile) (domain.Profile, error) {
+func (s *ProfileService) CreateUserProfile(ctx context.Context, requestingUserID string, newProfile domain.Profile, imageBytes []byte, fileExtension string) (domain.Profile, error) {
 	if newProfile.Username == "" {
 		return domain.Profile{}, fmt.Errorf("[profile_service.go] CreateUserProfile: username is required")
 	}
@@ -93,6 +99,19 @@ func (s *ProfileService) CreateUserProfile(ctx context.Context, requestingUserID
 
 	if usernameExists {
 		return domain.Profile{}, fmt.Errorf("the username '%s' is already taken", newProfile.Username)
+	}
+
+	if len(imageBytes) > 0 {
+		// unique, organized file name: "profiles/user-uuid/avatar.jpg"
+		fileName := fmt.Sprintf("profiles/%s/avatar%s", requestingUserID, fileExtension)
+
+		publicURL, err := s.imageStorage.UploadProfilePicture(ctx, imageBytes, fileName)
+		if err != nil {
+			// If the image fails to upload, abort profile creation
+			return domain.Profile{}, fmt.Errorf("[profile_service.go] CreateUserProfile: failed to upload profile picture: %w", err)
+		}
+
+		newProfile.ProfileImageUrl = publicURL
 	}
 
 	createdProfile, err := s.repo.CreateProfile(ctx, requestingUserID, newProfile)
