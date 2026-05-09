@@ -18,20 +18,24 @@ func main() {
 	router := gin.Default()
 	api := router.Group("/api/v1")
 
-	// --- PUBLIC ROUTES (No auth required) ---
+	// PUBLIC ROUTES (No auth required)
 	publicProfiles := api.Group("/profiles")
 	{
 		// Anyone can view a profile
-		publicProfiles.GET("/:id", handler.GetProfile)
+		publicProfiles.GET("/id/:id", handler.GetProfile)
+		publicProfiles.GET("/username/:username", handler.GetProfileFromUsernameHandler)
 	}
 
-	// --- PROTECTED ROUTES (Require valid JWT) ---
+	// publicPosts := api.Group("/posts")
+	// {
+
+	// }
+
+	// PROTECTED ROUTES (Require valid JWT)
 	protected := api.Group("/")
-	protected.Use(middleware.RequireAuth()) // <--- Attach the bouncer here!
+	protected.Use(middleware.RequireAuth())
 	{
-		// Example of a protected route:
-		// protected.PUT("/profiles/update", handler.UpdateProfile)
-		// protected.POST("/posts", handler.CreatePost)
+
 	}
 
 	log.Println("Starting The Daily Sunshine API on port 8080...")

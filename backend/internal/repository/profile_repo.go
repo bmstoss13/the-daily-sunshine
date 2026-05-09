@@ -28,32 +28,26 @@ func GetProfileFromID(ctx context.Context, userID string, profileID string) (dom
 			return fmt.Errorf("[profile_repo.go] An error occurred while retrieving profile from id: %w", err)
 		}
 
-		fetchedProfile = domain.Profile{
-			ID:        PgUUIDToString(sqlcProfile.ID),
-			FirstName: sqlcProfile.FirstName,
-			LastName:  sqlcProfile.LastName,
-			Username:  sqlcProfile.Username,
-			NumRays:   int(sqlcProfile.NumRaysReceived),
-			Role:      domain.MembershipRole(sqlcProfile.Role),
+		fetchedProfile = ConvertProfile(sqlcProfile)
 
-			CreatedAt: sqlcProfile.CreatedAt.Time,
-			UpdatedAt: sqlcProfile.UpdatedAt.Time,
+		return nil
+	})
+
+	return fetchedProfile, err
+}
+
+func GetProfileFromUsername(ctx context.Context, userID string, username string) (domain.Profile, error) {
+	var fetchedProfile domain.Profile
+
+	err := WithRLS(ctx, userID, func(tx pgx.Tx) error {
+		q := New(tx)
+
+		sqlcProfile, err := q.GetProfileByUsername(ctx, username)
+		if err != nil {
+			return fmt.Errorf("[profile_repo.go] An error occurred while retrieving profile from username: %w", err)
 		}
 
-		if sqlcProfile.ProfileImageUrl != nil {
-			fetchedProfile.ProfileImage = *sqlcProfile.ProfileImageUrl
-		} else {
-			fetchedProfile.ProfileImage = "" // Or a default URL string
-		}
-
-		if sqlcProfile.ProfileBio != nil {
-			bioStr := string(sqlcProfile.ProfileBio)
-			fetchedProfile.Bio = &bioStr
-		}
-
-		if sqlcProfile.DeletedAt.Valid {
-			fetchedProfile.DeletedAt = &sqlcProfile.DeletedAt.Time
-		}
+		fetchedProfile = ConvertProfile(sqlcProfile)
 
 		return nil
 	})

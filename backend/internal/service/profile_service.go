@@ -22,3 +22,16 @@ func FetchProfileByID(ctx context.Context, requestingUserID string, targetProfil
 
 	return profile, nil
 }
+
+func FetchProfileByUsername(ctx context.Context, requestingUserID string, targetUsername string) (domain.Profile, error) {
+	if targetUsername == "" {
+		return domain.Profile{}, fmt.Errorf("[profile_service.go] target username is required.")
+	}
+
+	profile, err := repository.GetProfileFromUsername(ctx, requestingUserID, targetUsername)
+	if err != nil {
+		return domain.Profile{}, fmt.Errorf("[profile_service.go] failed to get profile from username %s with id %s: %w", targetUsername, requestingUserID, err)
+	}
+
+	return profile, nil
+}

@@ -3,6 +3,7 @@ package repository
 import (
 	"fmt"
 
+	"github.com/github.com/bmstoss13/the-daily-sunshine/internal/domain"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -28,4 +29,35 @@ func PgUUIDToString(pgUUID pgtype.UUID) string {
 	b := pgUUID.Bytes
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
 		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+func ConvertProfile(sqlcProfile Profile) domain.Profile {
+	convertedProfile := domain.Profile{
+		ID:        PgUUIDToString(sqlcProfile.ID),
+		FirstName: sqlcProfile.FirstName,
+		LastName:  sqlcProfile.LastName,
+		Username:  sqlcProfile.Username,
+		NumRays:   int(sqlcProfile.NumRaysReceived),
+		Role:      domain.MembershipRole(sqlcProfile.Role),
+
+		CreatedAt: sqlcProfile.CreatedAt.Time,
+		UpdatedAt: sqlcProfile.UpdatedAt.Time,
+	}
+
+	if sqlcProfile.ProfileImageUrl != nil {
+		convertedProfile.ProfileImage = *sqlcProfile.ProfileImageUrl
+	} else {
+		convertedProfile.ProfileImage = "" // Or a default URL string
+	}
+
+	if sqlcProfile.ProfileBio != nil {
+		bioStr := string(sqlcProfile.ProfileBio)
+		convertedProfile.Bio = &bioStr
+	}
+
+	if sqlcProfile.DeletedAt.Valid {
+		convertedProfile.DeletedAt = &sqlcProfile.DeletedAt.Time
+	}
+
+	return convertedProfile
 }

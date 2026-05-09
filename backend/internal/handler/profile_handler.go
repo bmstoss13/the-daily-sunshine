@@ -23,5 +23,21 @@ func GetProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, profile)
+}
 
+func GetProfileFromUsernameHandler(c *gin.Context) {
+	targetUsername := c.Param("username")
+	requestingUserID := c.GetString("userID")
+
+	profile, err := service.FetchProfileByUsername(c.Request.Context(), requestingUserID, targetUsername)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to fetch profile from username",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, profile)
 }
