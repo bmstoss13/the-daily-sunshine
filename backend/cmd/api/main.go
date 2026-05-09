@@ -24,6 +24,7 @@ func main() {
 		// Anyone can view a profile
 		publicProfiles.GET("/id/:id", handler.GetProfile)
 		publicProfiles.GET("/username/:username", handler.GetProfileFromUsernameHandler)
+		publicProfiles.GET("/check-username", handler.GetUsernameAvailability)
 	}
 
 	// publicPosts := api.Group("/posts")

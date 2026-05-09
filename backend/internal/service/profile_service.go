@@ -35,3 +35,16 @@ func FetchProfileByUsername(ctx context.Context, requestingUserID string, target
 
 	return profile, nil
 }
+
+func IsUsernameTaken(ctx context.Context, requestingUserID string, usernameToCheck string) (bool, error) {
+	if usernameToCheck == "" {
+		return true, fmt.Errorf("[profile_service.go] IsUsernameTaken: username is required")
+	}
+
+	doesExist, err := repository.CheckProfileUsernameExists(ctx, requestingUserID, usernameToCheck)
+	if err != nil {
+		return true, fmt.Errorf("[profile_service.go] IsUsernameTaken: failed to get check if username %s exists from user with id %s: %w", usernameToCheck, requestingUserID, err)
+	}
+
+	return doesExist, nil
+}

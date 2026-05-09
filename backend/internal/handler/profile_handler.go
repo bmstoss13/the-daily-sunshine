@@ -22,7 +22,9 @@ func GetProfile(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, profile)
+	c.JSON(http.StatusOK, gin.H{
+		"data": profile,
+	})
 }
 
 func GetProfileFromUsernameHandler(c *gin.Context) {
@@ -39,5 +41,30 @@ func GetProfileFromUsernameHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, profile)
+	c.JSON(http.StatusOK, gin.H{
+		"data": profile,
+	})
+}
+
+func GetUsernameAvailability(c *gin.Context) {
+	usernameToCheck := c.Query("username") // Extracts from ?username=xxx
+	requestingUserID := c.GetString("userID")
+
+	isTaken, err := service.IsUsernameTaken(c.Request.Context(), requestingUserID, usernameToCheck)
+
+	if err != nil {
+		if usernameToCheck == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Username parameter is required"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to check username availability",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"taken": isTaken,
+	})
 }

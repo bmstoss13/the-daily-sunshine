@@ -36,6 +36,7 @@ func GetProfileFromID(ctx context.Context, userID string, profileID string) (dom
 	return fetchedProfile, err
 }
 
+// Function for getting profile from username
 func GetProfileFromUsername(ctx context.Context, userID string, username string) (domain.Profile, error) {
 	var fetchedProfile domain.Profile
 
@@ -53,4 +54,21 @@ func GetProfileFromUsername(ctx context.Context, userID string, username string)
 	})
 
 	return fetchedProfile, err
+}
+
+func CheckProfileUsernameExists(ctx context.Context, userID string, username string) (bool, error) {
+	var doesExist bool
+	err := WithRLS(ctx, userID, func(tx pgx.Tx) error {
+		q := New(tx)
+
+		exists, checkErr := q.CheckUsernameExists(ctx, username)
+		if checkErr != nil {
+			return fmt.Errorf("[profile_repo.go] CheckProfileUsernameExists: An error occurred while checking if username, %v, is in use: %w", username, checkErr)
+		}
+
+		doesExist = exists
+		return nil
+	})
+
+	return doesExist, err
 }
