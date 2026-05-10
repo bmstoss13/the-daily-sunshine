@@ -33,6 +33,14 @@ type CreateProfileRequest struct {
 	Bio       *string `form:"bio"` // Pointer makes it optional in JSON
 }
 
+type UpdateProfileRequest struct {
+	FirstName string  `form:"first_name" binding:"required"`
+	LastName  string  `form:"last_name" binding:"required"`
+	Username  string  `form:"username" binding:"required"`
+	Role      string  `form:"role" binding:"required"`
+	Bio       *string `form:"bio"` // Pointer makes it optional in JSON
+}
+
 func (h *ProfileHandler) GetProfile(c *gin.Context) {
 	targetProfileID := c.Param("id")
 	requestingUserID := c.GetString("userID")
@@ -199,5 +207,104 @@ func (h *ProfileHandler) CreateProfileHandler(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"data": createdProfile,
+	})
+}
+
+func (h *ProfileHandler) UpdateProfileHandler(c *gin.Context) {
+	requestingUserID := c.GetString("userID")
+
+	var req UpdateProfileRequest
+
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid JSON payload",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	newProfile := domain.Profile{
+		ID:        requestingUserID,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		Username:  req.Username,
+		Role:      domain.MembershipRole(req.Role),
+		Bio:       req.Bio,
+	}
+
+	var imageBytes []byte
+	var fileExtension string
+
+	fileHeader, err := c.FormFile("profile_image")
+	if err == nil {
+		// Open the file
+		file, openErr := fileHeader.Open()
+		if openErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open uploaded file"})
+			return
+		}
+		defer file.Close()
+
+		// Read it into bytes for the Service layer
+		imageBytes, _ = io.ReadAll(file)
+		// Grab the extension (e.g., ".jpg")
+		fileExtension = filepath.Ext(fileHeader.Filename)
+	}
+
+	updatedProfile, err := h.profileService.UpdateUserProfile(
+		c.Request.Context(),
+		requestingUserID,
+		newProfile,
+		imageBytes,
+		fileExtension,
+	)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "already taken") {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to update profile",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": updatedProfile,
+	})
+}
+
+func (h *ProfileHandler) SoftDeleteProfileHandler(c *gin.Context) {
+	requestingUserID := c.GetString("userID")
+	softDeletedProfile, err := h.profileService.SoftDeleteUserProfile(c.Request.Context(), requestingUserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to soft delete profile",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": softDeletedProfile,
+	})
+}
+
+func (h *ProfileHandler) PermanentlyDeleteProfile(c *gin.Context) {
+	requestingUserID := c.GetString("userID")
+
+	deletedProfile, err := h.profileService.PermanentlyDeleteUserProfile(c.Request.Context(), requestingUserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to permanently delete profile",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": deletedProfile,
 	})
 }

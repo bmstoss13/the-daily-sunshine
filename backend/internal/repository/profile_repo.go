@@ -143,3 +143,85 @@ func (r *PostgresProfileRepository) CreateProfile(ctx context.Context, userID st
 
 	return createdProfile, err
 }
+
+func (r *PostgresProfileRepository) UpdateProfile(ctx context.Context, userID string, profileWithUpdates domain.Profile) (domain.Profile, error) {
+	var updatedProfile domain.Profile
+	err := WithRLS(ctx, r.db, userID, func(tx pgx.Tx) error {
+		q := New(tx)
+
+		pgID, err := StringToPgUUID(profileWithUpdates.ID)
+		if err != nil {
+			return fmt.Errorf("[profile_repo.go] UpdateProfile: invalid profile ID format: %w", err)
+		}
+
+		params := UpdateProfileParams{
+			ID:        pgID,
+			FirstName: profileWithUpdates.FirstName,
+			LastName:  profileWithUpdates.LastName,
+			Username:  profileWithUpdates.Username,
+			Role:      string(profileWithUpdates.Role),
+		}
+
+		if profileWithUpdates.ProfileImageUrl != "" {
+			params.ProfileImageUrl = &profileWithUpdates.ProfileImageUrl
+		}
+
+		if profileWithUpdates.Bio != nil {
+			params.ProfileBio = []byte(*profileWithUpdates.Bio)
+		}
+
+		sqlcProfile, err := q.UpdateProfile(ctx, params)
+		if err != nil {
+			return fmt.Errorf("[profile_repo.go] UpdateProfile: failed to update profile: %w", err)
+		}
+
+		updatedProfile = ConvertProfile(sqlcProfile)
+		return nil
+	})
+
+	return updatedProfile, err
+}
+
+func (r *PostgresProfileRepository) SoftDeleteProfile(ctx context.Context, userID string) (domain.Profile, error) {
+	var softDeletedProfile domain.Profile
+	err := WithRLS(ctx, r.db, userID, func(tx pgx.Tx) error {
+		q := New(tx)
+
+		pgID, err := StringToPgUUID(userID)
+		if err != nil {
+			return fmt.Errorf("[profile_repo.go] SoftDeleteProfile: invalid profile ID format: %w", err)
+		}
+
+		sqlcProfile, err := q.SoftDeleteProfile(ctx, pgID)
+		if err != nil {
+			return fmt.Errorf("[profile_repo.go] SoftDeleteProfile: failed to delete profile: %w", err)
+		}
+
+		softDeletedProfile = ConvertProfile(sqlcProfile)
+		return nil
+	})
+
+	return softDeletedProfile, err
+}
+
+func (r *PostgresProfileRepository) PermanentlyDeleteProfile(ctx context.Context, userID string) (domain.Profile, error) {
+	var deletedProfile domain.Profile
+	err := WithRLS(ctx, r.db, userID, func(tx pgx.Tx) error {
+		q := New(tx)
+
+		pgID, err := StringToPgUUID(userID)
+		if err != nil {
+			return fmt.Errorf("[profile_repo.go] PermanentlyDeleteProfile: invalid profile ID format: %w", err)
+		}
+
+		sqlcProfile, err := q.PermanentlyDeleteProfile(ctx, pgID)
+		if err != nil {
+			return fmt.Errorf("[profile_repo.go] PermanentlyDeleteProfile: failed to delete profile: %w", err)
+		}
+
+		deletedProfile = ConvertProfile(sqlcProfile)
+		return nil
+	})
+
+	return deletedProfile, err
+}

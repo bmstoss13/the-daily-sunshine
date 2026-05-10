@@ -64,6 +64,9 @@ func main() {
 	protected.Use(middleware.RequireAuth())
 	{
 		protected.POST("/profiles", profileHandler.CreateProfileHandler)
+		protected.PUT("/profiles", profileHandler.UpdateProfileHandler)
+		protected.DELETE("/profiles", profileHandler.PermanentlyDeleteProfile)
+		protected.PATCH("/profiles/deactivate", profileHandler.SoftDeleteProfileHandler)
 	}
 
 	log.Println("Starting The Daily Sunshine API on port 8080...")

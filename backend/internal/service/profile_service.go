@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/bmstoss13/the-daily-sunshine/internal/domain"
 )
@@ -13,10 +14,14 @@ type ProfileRepository interface {
 	CheckProfileUsernameExists(ctx context.Context, userID string, username string) (bool, error)
 	GetListOfProfiles(ctx context.Context, userID string, limit int32, offset int32) ([]domain.Profile, error)
 	CreateProfile(ctx context.Context, userID string, newProfile domain.Profile) (domain.Profile, error)
+	UpdateProfile(ctx context.Context, userID string, profileWithUpdates domain.Profile) (domain.Profile, error)
+	SoftDeleteProfile(ctx context.Context, userID string) (domain.Profile, error)
+	PermanentlyDeleteProfile(ctx context.Context, userID string) (domain.Profile, error)
 }
 
 type ImageStorage interface {
 	UploadProfilePicture(ctx context.Context, fileBytes []byte, fileName string) (string, error)
+	DeleteProfilePicture(ctx context.Context, fullImageURL string) error
 }
 
 type ProfileService struct {
@@ -120,4 +125,76 @@ func (s *ProfileService) CreateUserProfile(ctx context.Context, requestingUserID
 	}
 
 	return createdProfile, nil
+}
+
+func (s *ProfileService) UpdateUserProfile(ctx context.Context, requestingUserID string, profileWithUpdates domain.Profile, imageBytes []byte, fileExtension string) (domain.Profile, error) {
+	if profileWithUpdates.Username == "" {
+		return domain.Profile{}, fmt.Errorf("[profile_service.go] UpdateUserProfile: username is required")
+	}
+
+	currentProfile, err := s.repo.GetProfileFromID(ctx, requestingUserID, requestingUserID)
+	if err != nil {
+		return domain.Profile{}, fmt.Errorf("[profile_service.go] UpdateUserProfile: failed to fetch current profile: %w", err)
+	}
+
+	if currentProfile.Username != profileWithUpdates.Username {
+		usernameExists, err := s.repo.CheckProfileUsernameExists(ctx, requestingUserID, profileWithUpdates.Username)
+		if err != nil {
+			return domain.Profile{}, fmt.Errorf("[profile_service.go] UpdateUserProfile: failed to check if username %s exists from user with id %s: %w", profileWithUpdates.Username, requestingUserID, err)
+		}
+		if usernameExists {
+			return domain.Profile{}, fmt.Errorf("the username '%s' is already taken", profileWithUpdates.Username)
+		}
+	}
+
+	if len(imageBytes) > 0 {
+		// unique, organized file name: "profiles/user-uuid/avatar.jpg"
+		fileName := fmt.Sprintf("profiles/%s/avatar%s", requestingUserID, fileExtension)
+
+		publicURL, err := s.imageStorage.UploadProfilePicture(ctx, imageBytes, fileName)
+		if err != nil {
+			// If the image fails to upload, abort profile creation
+			return domain.Profile{}, fmt.Errorf("[profile_service.go] UpdateUserProfile: failed to upload profile picture: %w", err)
+		}
+
+		profileWithUpdates.ProfileImageUrl = publicURL
+	} else {
+		profileWithUpdates.ProfileImageUrl = currentProfile.ProfileImageUrl
+	}
+
+	updatedProfile, err := s.repo.UpdateProfile(ctx, requestingUserID, profileWithUpdates)
+	if err != nil {
+		return domain.Profile{}, fmt.Errorf("[profile_service.go] UpdateUserProfile: failed to update profile in database: %w", err)
+	}
+
+	return updatedProfile, nil
+}
+
+func (s *ProfileService) SoftDeleteUserProfile(ctx context.Context, requestingUserID string) (domain.Profile, error) {
+	softDeletedProfile, err := s.repo.SoftDeleteProfile(ctx, requestingUserID)
+	if err != nil {
+		return domain.Profile{}, fmt.Errorf("[profile_service.go] SoftDeleteUserProfile: failed to soft delete profile: %w", err)
+	}
+
+	return softDeletedProfile, nil
+}
+
+func (s *ProfileService) PermanentlyDeleteUserProfile(ctx context.Context, requestingUserID string) (domain.Profile, error) {
+	profileToDelete, err := s.repo.GetProfileFromID(ctx, requestingUserID, requestingUserID)
+	if err != nil {
+		return domain.Profile{}, fmt.Errorf("[profile_service.go] PermanentlyDeleteUserProfile: failed to fetch profile prior to deletion: %w", err)
+	}
+	deletedProfile, err := s.repo.PermanentlyDeleteProfile(ctx, requestingUserID)
+	if err != nil {
+		return domain.Profile{}, fmt.Errorf("[profile_service.go] PermanentlyDeleteUserProfile: failed to permanently delete profile: %w", err)
+	}
+
+	if profileToDelete.ProfileImageUrl != "" {
+		imageErr := s.imageStorage.DeleteProfilePicture(ctx, profileToDelete.ProfileImageUrl)
+		if imageErr != nil {
+			log.Printf("WARNING: Orphaned profile image left in Cloudflare R2 for user %s. Error: %v\n", requestingUserID, imageErr)
+		}
+	}
+
+	return deletedProfile, nil
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -26,16 +27,16 @@ func NewCloudflareR2Storage(client *s3.Client) *CloudflareR2Storage {
 }
 
 func (s *CloudflareR2Storage) UploadProfilePicture(ctx context.Context, fileBytes []byte, fileName string) (string, error) {
-	// Failsafe: Ensure we actually have the environment variables loaded
+	// failsafe to ensure the env is loaded
 	if s.bucketName == "" || s.publicURL == "" {
 		return "", fmt.Errorf("R2 bucket name or public URL is not configured")
 	}
 
-	// 1. Sniff the MIME type (e.g., "image/jpeg", "image/png")
+	// Sniff the MIME type (e.g., "image/jpeg", "image/png")
 	// This ensures browsers render the image instead of forcing a download
 	contentType := http.DetectContentType(fileBytes)
 
-	// 2. Prepare the AWS S3 Upload Object
+	// Prepare the AWS S3 Upload Object
 	input := &s3.PutObjectInput{
 		Bucket:      aws.String(s.bucketName),
 		Key:         aws.String(fileName),       // e.g., "profiles/uuid/avatar.jpg"
@@ -43,15 +44,42 @@ func (s *CloudflareR2Storage) UploadProfilePicture(ctx context.Context, fileByte
 		ContentType: aws.String(contentType),
 	}
 
-	// 3. Execute the Upload to Cloudflare
+	// Execute the Upload to Cloudflare
 	_, err := s.s3Client.PutObject(ctx, input)
 	if err != nil {
-		return "", fmt.Errorf("[r2_image_storage.go] failed to put object in bucket: %w", err)
+		return "", fmt.Errorf("[r2_image_storage.go] UploadProfilePicture: failed to put object in bucket: %w", err)
 	}
 
-	// 4. Construct the final public URL to save in the database
+	// Construct the final public URL to save in the database
 	// Example: https://cdn.the-daily-sunshine.com/profiles/123/avatar.jpg
 	finalURL := fmt.Sprintf("%s/%s", s.publicURL, fileName)
 
 	return finalURL, nil
+}
+
+func (s *CloudflareR2Storage) DeleteProfilePicture(ctx context.Context, fullImageURL string) error {
+	// failsafe to ensure the env is loaded
+	if s.bucketName == "" || s.publicURL == "" {
+		return fmt.Errorf("R2 bucket name or public URL is not configured")
+	}
+
+	baseURL := s.publicURL
+	if !strings.HasSuffix(baseURL, "/") {
+		baseURL += "/"
+	}
+	s3Key := strings.Replace(fullImageURL, baseURL, "", 1)
+
+	// Prepare the AWS S3 Delete Object
+	input := &s3.DeleteObjectInput{
+		Bucket: aws.String(s.bucketName),
+		Key:    aws.String(s3Key), // e.g., "profiles/uuid/avatar.jpg"
+	}
+
+	// Execute the delete request to Cloudflare
+	_, err := s.s3Client.DeleteObject(ctx, input)
+	if err != nil {
+		return fmt.Errorf("[r2_image_storage.go] DeleteProfilePicture: failed to delete object from bucket: %w", err)
+	}
+
+	return nil
 }

@@ -11,32 +11,47 @@ import (
 )
 
 type mockProfileRepo struct {
-	mockProfile        domain.Profile
-	mockProfileList    []domain.Profile
-	mockUsernameExists bool
-	mockRetrieveError  error
-	mockCheckError     error
-	mockCreateError    error
+	mockProfile                   domain.Profile
+	mockProfileFromID             domain.Profile
+	mockUpdatedProfile            domain.Profile
+	mockSoftDeletedProfile        domain.Profile
+	mockPermanentlyDeletedProfile domain.Profile
+	mockProfileList               []domain.Profile
+	mockUsernameExists            bool
+	mockRetrieveError             error
+	mockGetByIDError              error
+	mockCheckError                error
+	mockCreateError               error
+	mockUpdateError               error
+	mockSoftDeleteError           error
+	mockPermanentDeleteError      error
 
 	getByIDCalled         bool
 	getByUsernameCalled   bool
 	checkUsernameCalled   bool
 	getProfileListCalled  bool
 	createProfileCalled   bool
+	updateProfileCalled   bool
+	softDeleteCalled      bool
+	permanentDeleteCalled bool
 	lastUserID            string
 	lastTargetProfileID   string
 	lastUsername          string
 	lastLimit             int32
 	lastOffset            int32
 	lastCreatedProfileArg domain.Profile
+	lastUpdatedProfileArg domain.Profile
 }
 
 type mockImageStorage struct {
 	mockURL         string
 	mockUploadError error
+	mockDeleteError error
 	uploadCalled    bool
+	deleteCalled    bool
 	lastFileBytes   []byte
 	lastFileName    string
+	lastDeletedURL  string
 }
 
 func (m *mockImageStorage) UploadProfilePicture(_ context.Context, fileBytes []byte, fileName string) (string, error) {
@@ -49,10 +64,25 @@ func (m *mockImageStorage) UploadProfilePicture(_ context.Context, fileBytes []b
 	return m.mockURL, nil
 }
 
+func (m *mockImageStorage) DeleteProfilePicture(_ context.Context, fullImageURL string) error {
+	m.deleteCalled = true
+	m.lastDeletedURL = fullImageURL
+	if m.mockDeleteError != nil {
+		return m.mockDeleteError
+	}
+	return m.mockDeleteError
+}
+
 func (m *mockProfileRepo) GetProfileFromID(_ context.Context, userID string, targetProfileID string) (domain.Profile, error) {
 	m.getByIDCalled = true
 	m.lastUserID = userID
 	m.lastTargetProfileID = targetProfileID
+	if m.mockGetByIDError != nil {
+		return domain.Profile{}, m.mockGetByIDError
+	}
+	if m.mockProfileFromID != (domain.Profile{}) {
+		return m.mockProfileFromID, nil
+	}
 	return m.mockProfile, m.mockRetrieveError
 }
 
@@ -84,6 +114,43 @@ func (m *mockProfileRepo) CreateProfile(_ context.Context, userID string, newPro
 	m.lastCreatedProfileArg = newProfile
 	if m.mockCreateError != nil {
 		return domain.Profile{}, m.mockCreateError
+	}
+	return m.mockProfile, nil
+}
+
+func (m *mockProfileRepo) UpdateProfile(ctx context.Context, userID string, profileWithUpdates domain.Profile) (domain.Profile, error) {
+	m.updateProfileCalled = true
+	m.lastUserID = userID
+	m.lastUpdatedProfileArg = profileWithUpdates
+	if m.mockUpdateError != nil {
+		return domain.Profile{}, m.mockUpdateError
+	}
+	if m.mockUpdatedProfile != (domain.Profile{}) {
+		return m.mockUpdatedProfile, nil
+	}
+	return profileWithUpdates, nil
+}
+
+func (m *mockProfileRepo) SoftDeleteProfile(ctx context.Context, userID string) (domain.Profile, error) {
+	m.softDeleteCalled = true
+	m.lastUserID = userID
+	if m.mockSoftDeleteError != nil {
+		return domain.Profile{}, m.mockSoftDeleteError
+	}
+	if m.mockSoftDeletedProfile != (domain.Profile{}) {
+		return m.mockSoftDeletedProfile, nil
+	}
+	return m.mockProfile, nil
+}
+
+func (m *mockProfileRepo) PermanentlyDeleteProfile(ctx context.Context, userID string) (domain.Profile, error) {
+	m.permanentDeleteCalled = true
+	m.lastUserID = userID
+	if m.mockPermanentDeleteError != nil {
+		return domain.Profile{}, m.mockPermanentDeleteError
+	}
+	if m.mockPermanentlyDeletedProfile != (domain.Profile{}) {
+		return m.mockPermanentlyDeletedProfile, nil
 	}
 	return m.mockProfile, nil
 }
@@ -494,6 +561,403 @@ func TestProfileService_CreateUserProfile(t *testing.T) {
 		}
 		if repo.lastCreatedProfileArg.ProfileImageUrl != expected.ProfileImageUrl {
 			t.Fatalf("expected created profile image URL %s, got %s", expected.ProfileImageUrl, repo.lastCreatedProfileArg.ProfileImageUrl)
+		}
+	})
+}
+
+func TestProfileService_UpdateUserProfile(t *testing.T) {
+	baseProfile := domain.Profile{
+		ID:              "requester-1",
+		FirstName:       "Daily",
+		LastName:        "Sunshine",
+		Username:        "sunshine",
+		ProfileImageUrl: "https://cdn.example.com/profiles/requester-1/avatar-old.jpg",
+		Role:            domain.Member,
+	}
+
+	t.Run("returns validation error when username is empty", func(t *testing.T) {
+		repo := &mockProfileRepo{}
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
+
+		updated, err := service.UpdateUserProfile(context.Background(), "requester-1", domain.Profile{}, nil, "")
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+		if !strings.Contains(err.Error(), "UpdateUserProfile: username is required") {
+			t.Fatalf("expected validation error, got %v", err)
+		}
+		if updated != (domain.Profile{}) {
+			t.Fatalf("expected empty profile, got %#v", updated)
+		}
+		if repo.getByIDCalled || repo.updateProfileCalled {
+			t.Fatal("expected repository not to be called")
+		}
+	})
+
+	t.Run("returns wrapped error when fetching current profile fails", func(t *testing.T) {
+		repoErr := errors.New("fetch current profile failed")
+		repo := &mockProfileRepo{mockGetByIDError: repoErr}
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
+
+		_, err := service.UpdateUserProfile(context.Background(), "requester-1", baseProfile, nil, "")
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+		if !errors.Is(err, repoErr) {
+			t.Fatalf("expected wrapped repo error, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "failed to fetch current profile") {
+			t.Fatalf("expected contextual error message, got %v", err)
+		}
+		if repo.updateProfileCalled {
+			t.Fatal("expected update not to be called when current profile lookup fails")
+		}
+	})
+
+	t.Run("returns wrapped error when checking new username fails", func(t *testing.T) {
+		repoErr := errors.New("username lookup failed")
+		repo := &mockProfileRepo{
+			mockProfileFromID: baseProfile,
+			mockCheckError:    repoErr,
+		}
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
+
+		profileWithUpdates := baseProfile
+		profileWithUpdates.Username = "freshsunshine"
+
+		_, err := service.UpdateUserProfile(context.Background(), "requester-1", profileWithUpdates, nil, "")
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+		if !errors.Is(err, repoErr) {
+			t.Fatalf("expected wrapped repo error, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "failed to check if username freshsunshine exists from user with id requester-1") {
+			t.Fatalf("expected contextual error message, got %v", err)
+		}
+		if repo.updateProfileCalled {
+			t.Fatal("expected update not to be called when username check fails")
+		}
+	})
+
+	t.Run("returns error when new username is already taken", func(t *testing.T) {
+		repo := &mockProfileRepo{
+			mockProfileFromID:  baseProfile,
+			mockUsernameExists: true,
+		}
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
+
+		profileWithUpdates := baseProfile
+		profileWithUpdates.Username = "freshsunshine"
+
+		updated, err := service.UpdateUserProfile(context.Background(), "requester-1", profileWithUpdates, nil, "")
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+		if !strings.Contains(err.Error(), "the username 'freshsunshine' is already taken") {
+			t.Fatalf("expected duplicate username error, got %v", err)
+		}
+		if updated != (domain.Profile{}) {
+			t.Fatalf("expected empty profile, got %#v", updated)
+		}
+		if repo.updateProfileCalled {
+			t.Fatal("expected update not to be called when username is taken")
+		}
+	})
+
+	t.Run("preserves current image when no new image is uploaded", func(t *testing.T) {
+		repo := &mockProfileRepo{
+			mockProfileFromID: baseProfile,
+		}
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
+
+		profileWithUpdates := baseProfile
+		profileWithUpdates.FirstName = "Brighter"
+		profileWithUpdates.ProfileImageUrl = ""
+
+		updated, err := service.UpdateUserProfile(context.Background(), "requester-1", profileWithUpdates, nil, "")
+		if err != nil {
+			t.Fatalf("expected nil error, got %v", err)
+		}
+		if updated.ProfileImageUrl != baseProfile.ProfileImageUrl {
+			t.Fatalf("expected image URL %s, got %s", baseProfile.ProfileImageUrl, updated.ProfileImageUrl)
+		}
+		if repo.lastUpdatedProfileArg.ProfileImageUrl != baseProfile.ProfileImageUrl {
+			t.Fatalf("expected update arg image URL %s, got %s", baseProfile.ProfileImageUrl, repo.lastUpdatedProfileArg.ProfileImageUrl)
+		}
+		if repo.checkUsernameCalled {
+			t.Fatal("expected username existence check to be skipped when username is unchanged")
+		}
+		if imageStorage.uploadCalled {
+			t.Fatal("expected image storage not to be called without image bytes")
+		}
+	})
+
+	t.Run("returns wrapped error when new profile image upload fails", func(t *testing.T) {
+		repo := &mockProfileRepo{
+			mockProfileFromID: baseProfile,
+		}
+		imageStorage := &mockImageStorage{mockUploadError: errors.New("r2 upload failed")}
+		service := NewProfileService(repo, imageStorage)
+		imageBytes := []byte{0x10, 0x20, 0x30}
+
+		updated, err := service.UpdateUserProfile(context.Background(), "requester-1", baseProfile, imageBytes, ".png")
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+		if !strings.Contains(err.Error(), "UpdateUserProfile: failed to upload profile picture") {
+			t.Fatalf("expected upload error message, got %v", err)
+		}
+		if updated != (domain.Profile{}) {
+			t.Fatalf("expected empty profile, got %#v", updated)
+		}
+		if !imageStorage.uploadCalled {
+			t.Fatal("expected image storage to be called")
+		}
+		if imageStorage.lastFileName != "profiles/requester-1/avatar.png" {
+			t.Fatalf("expected upload file name profiles/requester-1/avatar.png, got %s", imageStorage.lastFileName)
+		}
+		if repo.updateProfileCalled {
+			t.Fatal("expected update not to be called when image upload fails")
+		}
+	})
+
+	t.Run("uploads new image and updates profile", func(t *testing.T) {
+		profileWithUpdates := baseProfile
+		profileWithUpdates.Username = "freshsunshine"
+
+		expected := profileWithUpdates
+		expected.ProfileImageUrl = "https://cdn.example.com/profiles/requester-1/avatar.jpg"
+
+		repo := &mockProfileRepo{
+			mockProfileFromID:  baseProfile,
+			mockUpdatedProfile: expected,
+		}
+		imageStorage := &mockImageStorage{mockURL: expected.ProfileImageUrl}
+		service := NewProfileService(repo, imageStorage)
+		imageBytes := []byte{0xFF, 0xD8, 0xFF}
+
+		updated, err := service.UpdateUserProfile(context.Background(), "requester-1", profileWithUpdates, imageBytes, ".jpg")
+		if err != nil {
+			t.Fatalf("expected nil error, got %v", err)
+		}
+		if !reflect.DeepEqual(updated, expected) {
+			t.Fatalf("expected %#v, got %#v", expected, updated)
+		}
+		if !repo.checkUsernameCalled {
+			t.Fatal("expected username existence check for changed username")
+		}
+		if !repo.updateProfileCalled {
+			t.Fatal("expected update to be called")
+		}
+		if repo.lastUpdatedProfileArg.ProfileImageUrl != expected.ProfileImageUrl {
+			t.Fatalf("expected update arg image URL %s, got %s", expected.ProfileImageUrl, repo.lastUpdatedProfileArg.ProfileImageUrl)
+		}
+		if !imageStorage.uploadCalled {
+			t.Fatal("expected image storage to be called")
+		}
+	})
+
+	t.Run("returns wrapped error when update repository call fails", func(t *testing.T) {
+		repoErr := errors.New("update failed")
+		repo := &mockProfileRepo{
+			mockProfileFromID: baseProfile,
+			mockUpdateError:   repoErr,
+		}
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
+
+		_, err := service.UpdateUserProfile(context.Background(), "requester-1", baseProfile, nil, "")
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+		if !errors.Is(err, repoErr) {
+			t.Fatalf("expected wrapped repo error, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "failed to update profile in database") {
+			t.Fatalf("expected contextual error message, got %v", err)
+		}
+	})
+}
+
+func TestProfileService_SoftDeleteUserProfile(t *testing.T) {
+	t.Run("returns wrapped error when soft delete fails", func(t *testing.T) {
+		repoErr := errors.New("soft delete failed")
+		repo := &mockProfileRepo{mockSoftDeleteError: repoErr}
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
+
+		deleted, err := service.SoftDeleteUserProfile(context.Background(), "requester-1")
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+		if !errors.Is(err, repoErr) {
+			t.Fatalf("expected wrapped repo error, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "SoftDeleteUserProfile: failed to soft delete profile") {
+			t.Fatalf("expected contextual error message, got %v", err)
+		}
+		if deleted != (domain.Profile{}) {
+			t.Fatalf("expected empty profile, got %#v", deleted)
+		}
+	})
+
+	t.Run("returns soft deleted profile when repository succeeds", func(t *testing.T) {
+		expected := domain.Profile{ID: "requester-1", Username: "sunshine"}
+		repo := &mockProfileRepo{mockSoftDeletedProfile: expected}
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
+
+		deleted, err := service.SoftDeleteUserProfile(context.Background(), "requester-1")
+		if err != nil {
+			t.Fatalf("expected nil error, got %v", err)
+		}
+		if !reflect.DeepEqual(deleted, expected) {
+			t.Fatalf("expected %#v, got %#v", expected, deleted)
+		}
+		if !repo.softDeleteCalled {
+			t.Fatal("expected soft delete to be called")
+		}
+		if imageStorage.uploadCalled || imageStorage.deleteCalled {
+			t.Fatal("expected image storage not to be used during soft delete")
+		}
+	})
+}
+
+func TestProfileService_PermanentlyDeleteUserProfile(t *testing.T) {
+	t.Run("returns wrapped error when fetching profile before deletion fails", func(t *testing.T) {
+		repoErr := errors.New("fetch failed")
+		repo := &mockProfileRepo{mockGetByIDError: repoErr}
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
+
+		deleted, err := service.PermanentlyDeleteUserProfile(context.Background(), "requester-1")
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+		if !errors.Is(err, repoErr) {
+			t.Fatalf("expected wrapped repo error, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "failed to fetch profile prior to deletion") {
+			t.Fatalf("expected contextual error message, got %v", err)
+		}
+		if deleted != (domain.Profile{}) {
+			t.Fatalf("expected empty profile, got %#v", deleted)
+		}
+		if repo.permanentDeleteCalled {
+			t.Fatal("expected permanent delete not to be called when fetch fails")
+		}
+	})
+
+	t.Run("returns wrapped error when repository delete fails", func(t *testing.T) {
+		repoErr := errors.New("delete failed")
+		repo := &mockProfileRepo{
+			mockProfileFromID:        domain.Profile{ID: "requester-1", ProfileImageUrl: "https://cdn.example.com/profile.jpg"},
+			mockPermanentDeleteError: repoErr,
+		}
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
+
+		deleted, err := service.PermanentlyDeleteUserProfile(context.Background(), "requester-1")
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+		if !errors.Is(err, repoErr) {
+			t.Fatalf("expected wrapped repo error, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "failed to permanently delete profile") {
+			t.Fatalf("expected contextual error message, got %v", err)
+		}
+		if deleted != (domain.Profile{}) {
+			t.Fatalf("expected empty profile, got %#v", deleted)
+		}
+		if imageStorage.deleteCalled {
+			t.Fatal("expected image delete not to run when repo delete fails")
+		}
+	})
+
+	t.Run("deletes image when profile has a stored image", func(t *testing.T) {
+		profileToDelete := domain.Profile{
+			ID:              "requester-1",
+			Username:        "sunshine",
+			ProfileImageUrl: "https://cdn.example.com/profiles/requester-1/avatar.jpg",
+		}
+		expected := domain.Profile{ID: "requester-1", Username: "sunshine"}
+		repo := &mockProfileRepo{
+			mockProfileFromID:             profileToDelete,
+			mockPermanentlyDeletedProfile: expected,
+		}
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
+
+		deleted, err := service.PermanentlyDeleteUserProfile(context.Background(), "requester-1")
+		if err != nil {
+			t.Fatalf("expected nil error, got %v", err)
+		}
+		if !reflect.DeepEqual(deleted, expected) {
+			t.Fatalf("expected %#v, got %#v", expected, deleted)
+		}
+		if !repo.permanentDeleteCalled {
+			t.Fatal("expected permanent delete to be called")
+		}
+		if !imageStorage.deleteCalled {
+			t.Fatal("expected image delete to be called")
+		}
+		if imageStorage.lastDeletedURL != profileToDelete.ProfileImageUrl {
+			t.Fatalf("expected deleted image URL %s, got %s", profileToDelete.ProfileImageUrl, imageStorage.lastDeletedURL)
+		}
+	})
+
+	t.Run("does not attempt image deletion when profile has no image", func(t *testing.T) {
+		profileToDelete := domain.Profile{ID: "requester-1", Username: "sunshine"}
+		expected := domain.Profile{ID: "requester-1", Username: "sunshine"}
+		repo := &mockProfileRepo{
+			mockProfileFromID:             profileToDelete,
+			mockPermanentlyDeletedProfile: expected,
+		}
+		imageStorage := &mockImageStorage{}
+		service := NewProfileService(repo, imageStorage)
+
+		deleted, err := service.PermanentlyDeleteUserProfile(context.Background(), "requester-1")
+		if err != nil {
+			t.Fatalf("expected nil error, got %v", err)
+		}
+		if !reflect.DeepEqual(deleted, expected) {
+			t.Fatalf("expected %#v, got %#v", expected, deleted)
+		}
+		if imageStorage.deleteCalled {
+			t.Fatal("expected image delete not to be called")
+		}
+	})
+
+	t.Run("still succeeds when image cleanup fails", func(t *testing.T) {
+		profileToDelete := domain.Profile{
+			ID:              "requester-1",
+			Username:        "sunshine",
+			ProfileImageUrl: "https://cdn.example.com/profiles/requester-1/avatar.jpg",
+		}
+		expected := domain.Profile{ID: "requester-1", Username: "sunshine"}
+		repo := &mockProfileRepo{
+			mockProfileFromID:             profileToDelete,
+			mockPermanentlyDeletedProfile: expected,
+		}
+		imageStorage := &mockImageStorage{mockDeleteError: errors.New("r2 delete failed")}
+		service := NewProfileService(repo, imageStorage)
+
+		deleted, err := service.PermanentlyDeleteUserProfile(context.Background(), "requester-1")
+		if err != nil {
+			t.Fatalf("expected nil error, got %v", err)
+		}
+		if !reflect.DeepEqual(deleted, expected) {
+			t.Fatalf("expected %#v, got %#v", expected, deleted)
+		}
+		if !imageStorage.deleteCalled {
+			t.Fatal("expected image delete to be attempted")
 		}
 	})
 }
