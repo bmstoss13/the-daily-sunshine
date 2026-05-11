@@ -121,7 +121,7 @@ func (r *PostgresProfileRepository) CreateProfile(ctx context.Context, userID st
 			FirstName: newProfile.FirstName,
 			LastName:  newProfile.LastName,
 			Username:  newProfile.Username,
-			Role:      string(newProfile.Role),
+			Role:      MembershipRole(newProfile.Role),
 		}
 
 		if newProfile.ProfileImageUrl != "" {
@@ -159,7 +159,7 @@ func (r *PostgresProfileRepository) UpdateProfile(ctx context.Context, userID st
 			FirstName: profileWithUpdates.FirstName,
 			LastName:  profileWithUpdates.LastName,
 			Username:  profileWithUpdates.Username,
-			Role:      string(profileWithUpdates.Role),
+			Role:      MembershipRole(profileWithUpdates.Role),
 		}
 
 		if profileWithUpdates.ProfileImageUrl != "" {

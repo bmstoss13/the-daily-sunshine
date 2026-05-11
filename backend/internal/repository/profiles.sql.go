@@ -40,13 +40,13 @@ RETURNING id, first_name, last_name, username, profile_image_url, profile_bio, n
 `
 
 type CreateProfileParams struct {
-	ID              pgtype.UUID `json:"id"`
-	FirstName       string      `json:"first_name"`
-	LastName        string      `json:"last_name"`
-	Username        string      `json:"username"`
-	Role            string      `json:"role"`
-	ProfileImageUrl *string     `json:"profile_image_url"`
-	ProfileBio      []byte      `json:"profile_bio"`
+	ID              pgtype.UUID    `json:"id"`
+	FirstName       string         `json:"first_name"`
+	LastName        string         `json:"last_name"`
+	Username        string         `json:"username"`
+	Role            MembershipRole `json:"role"`
+	ProfileImageUrl *string        `json:"profile_image_url"`
+	ProfileBio      []byte         `json:"profile_bio"`
 }
 
 func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error) {
@@ -247,13 +247,13 @@ RETURNING id, first_name, last_name, username, profile_image_url, profile_bio, n
 `
 
 type UpdateProfileParams struct {
-	ID              pgtype.UUID `json:"id"`
-	FirstName       string      `json:"first_name"`
-	LastName        string      `json:"last_name"`
-	Username        string      `json:"username"`
-	Role            string      `json:"role"`
-	ProfileImageUrl *string     `json:"profile_image_url"`
-	ProfileBio      []byte      `json:"profile_bio"`
+	ID              pgtype.UUID    `json:"id"`
+	FirstName       string         `json:"first_name"`
+	LastName        string         `json:"last_name"`
+	Username        string         `json:"username"`
+	Role            MembershipRole `json:"role"`
+	ProfileImageUrl *string        `json:"profile_image_url"`
+	ProfileBio      []byte         `json:"profile_bio"`
 }
 
 func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error) {
