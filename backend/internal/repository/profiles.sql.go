@@ -30,21 +30,23 @@ INSERT INTO profiles (
     first_name, 
     last_name, 
     username, 
+    role,
     profile_image_url, 
     profile_bio
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5, $6, $7
 )
 RETURNING id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, role, created_at, updated_at, deleted_at
 `
 
 type CreateProfileParams struct {
-	ID              pgtype.UUID `json:"id"`
-	FirstName       string      `json:"first_name"`
-	LastName        string      `json:"last_name"`
-	Username        string      `json:"username"`
-	ProfileImageUrl *string     `json:"profile_image_url"`
-	ProfileBio      []byte      `json:"profile_bio"`
+	ID              pgtype.UUID    `json:"id"`
+	FirstName       string         `json:"first_name"`
+	LastName        string         `json:"last_name"`
+	Username        string         `json:"username"`
+	Role            MembershipRole `json:"role"`
+	ProfileImageUrl *string        `json:"profile_image_url"`
+	ProfileBio      []byte         `json:"profile_bio"`
 }
 
 func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error) {
@@ -53,6 +55,7 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 		arg.FirstName,
 		arg.LastName,
 		arg.Username,
+		arg.Role,
 		arg.ProfileImageUrl,
 		arg.ProfileBio,
 	)
@@ -190,6 +193,18 @@ func (q *Queries) PermanentlyDeleteProfile(ctx context.Context, id pgtype.UUID) 
 	return i, err
 }
 
+const selectProfilePhoto = `-- name: SelectProfilePhoto :one
+SELECT profile_image_url FROM profiles
+WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) SelectProfilePhoto(ctx context.Context, id pgtype.UUID) (*string, error) {
+	row := q.db.QueryRow(ctx, selectProfilePhoto, id)
+	var profile_image_url *string
+	err := row.Scan(&profile_image_url)
+	return profile_image_url, err
+}
+
 const softDeleteProfile = `-- name: SoftDeleteProfile :one
 UPDATE profiles
 SET
@@ -223,20 +238,22 @@ SET
     first_name = $2,
     last_name = $3,
     username = $4,
-    profile_image_url = $5,
-    profile_bio = $6,
+    role = $5,
+    profile_image_url = $6,
+    profile_bio = $7,
     updated_at = NOW()
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, role, created_at, updated_at, deleted_at
 `
 
 type UpdateProfileParams struct {
-	ID              pgtype.UUID `json:"id"`
-	FirstName       string      `json:"first_name"`
-	LastName        string      `json:"last_name"`
-	Username        string      `json:"username"`
-	ProfileImageUrl *string     `json:"profile_image_url"`
-	ProfileBio      []byte      `json:"profile_bio"`
+	ID              pgtype.UUID    `json:"id"`
+	FirstName       string         `json:"first_name"`
+	LastName        string         `json:"last_name"`
+	Username        string         `json:"username"`
+	Role            MembershipRole `json:"role"`
+	ProfileImageUrl *string        `json:"profile_image_url"`
+	ProfileBio      []byte         `json:"profile_bio"`
 }
 
 func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error) {
@@ -245,6 +262,7 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (P
 		arg.FirstName,
 		arg.LastName,
 		arg.Username,
+		arg.Role,
 		arg.ProfileImageUrl,
 		arg.ProfileBio,
 	)

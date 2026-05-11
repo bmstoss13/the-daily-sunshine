@@ -8,7 +8,7 @@ CREATE TABLE profiles (
     profile_image_url TEXT,
     profile_bio JSONB,
     num_rays_received INT NOT NULL DEFAULT 0,
-    role TEXT NOT NULL DEFAULT 'Member',
+    role membership_role NOT NULL DEFAULT 'Member',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
@@ -33,7 +33,7 @@ CREATE TABLE post_images (
     image_url TEXT NOT NULL,
     image_description TEXT NOT NULL,
     alt_text TEXT,
-    display_order INT NOT NULL DEFAULT 0,
+    is_cover_image BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -74,4 +74,11 @@ CREATE TABLE follows (
     following_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(follower_id, following_id)
+);
+
+CREATE TABLE saved_posts (
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, post_id)
 );

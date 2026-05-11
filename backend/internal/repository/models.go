@@ -92,7 +92,7 @@ type PostImage struct {
 	ImageUrl         string             `json:"image_url"`
 	ImageDescription string             `json:"image_description"`
 	AltText          *string            `json:"alt_text"`
-	DisplayOrder     int32              `json:"display_order"`
+	IsCoverImage     bool               `json:"is_cover_image"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -112,7 +112,7 @@ type Profile struct {
 	ProfileImageUrl *string            `json:"profile_image_url"`
 	ProfileBio      []byte             `json:"profile_bio"`
 	NumRaysReceived int32              `json:"num_rays_received"`
-	Role            string             `json:"role"`
+	Role            MembershipRole     `json:"role"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
@@ -124,4 +124,10 @@ type Ray struct {
 	PostID      pgtype.UUID        `json:"post_id"`
 	CommentID   pgtype.UUID        `json:"comment_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type SavedPost struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	PostID    pgtype.UUID        `json:"post_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }

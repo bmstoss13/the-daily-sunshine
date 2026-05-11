@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/github.com/bmstoss13/the-daily-sunshine/internal/config"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // WithRLS executes a database function securely within an RLS-scoped transaction.
-func WithRLS(ctx context.Context, userID string, fn func(tx pgx.Tx) error) error {
+func WithRLS(ctx context.Context, db *pgxpool.Pool, userID string, fn func(tx pgx.Tx) error) error {
 	// 1. Begin a new transaction
-	tx, err := config.DB.Begin(ctx)
+	tx, err := db.Begin(ctx)
 	if err != nil {
 		return err
 	}

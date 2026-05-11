@@ -23,10 +23,11 @@ INSERT INTO profiles (
     first_name, 
     last_name, 
     username, 
+    role,
     profile_image_url, 
     profile_bio
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5, $6, $7
 )
 RETURNING *;
 
@@ -36,8 +37,9 @@ SET
     first_name = $2,
     last_name = $3,
     username = $4,
-    profile_image_url = $5,
-    profile_bio = $6,
+    role = $5,
+    profile_image_url = $6,
+    profile_bio = $7,
     updated_at = NOW()
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING *;
@@ -53,3 +55,7 @@ RETURNING *;
 DELETE FROM profiles
 WHERE id = $1
 RETURNING *;
+
+-- name: SelectProfilePhoto :one
+SELECT profile_image_url FROM profiles
+WHERE id = $1 LIMIT 1;
