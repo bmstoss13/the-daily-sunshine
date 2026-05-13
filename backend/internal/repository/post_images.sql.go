@@ -29,7 +29,7 @@ type CreatePostImageParams struct {
 	ID               pgtype.UUID `json:"id"`
 	PostID           pgtype.UUID `json:"post_id"`
 	ImageUrl         string      `json:"image_url"`
-	ImageDescription string      `json:"image_description"`
+	ImageDescription *string     `json:"image_description"`
 	AltText          *string     `json:"alt_text"`
 	IsCoverImage     bool        `json:"is_cover_image"`
 }
@@ -150,7 +150,7 @@ type UpdatePostImageParams struct {
 	ID               pgtype.UUID `json:"id"`
 	PostID           pgtype.UUID `json:"post_id"`
 	ImageUrl         string      `json:"image_url"`
-	ImageDescription string      `json:"image_description"`
+	ImageDescription *string     `json:"image_description"`
 	AltText          *string     `json:"alt_text"`
 	IsCoverImage     bool        `json:"is_cover_image"`
 }

@@ -14,14 +14,18 @@ CREATE TABLE profiles (
     deleted_at TIMESTAMPTZ
 );
 
+CREATE TYPE post_status AS ENUM ('draft', 'published', 'archived');
+
 CREATE TABLE posts (
     id UUID PRIMARY KEY,
     publisher_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
     title TEXT NOT NULL,
+    subtitle TEXT,
     slug TEXT UNIQUE NOT NULL,
     post_content JSONB,
     num_rays INT NOT NULL DEFAULT 0,
     num_comments INT NOT NULL DEFAULT 0,
+    status post_status NOT NULL DEFAULT 'draft',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
@@ -31,7 +35,7 @@ CREATE TABLE post_images (
     id UUID PRIMARY KEY,
     post_id UUID NOT NULL REFERENCES posts(id),
     image_url TEXT NOT NULL,
-    image_description TEXT NOT NULL,
+    image_description TEXT,
     alt_text TEXT,
     is_cover_image BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

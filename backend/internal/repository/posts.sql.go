@@ -11,6 +11,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const checkSlugExists = `-- name: CheckSlugExists :one
+SELECT EXISTS(
+    SELECT 1 FROM posts WHERE slug = $1
+)
+`
+
+func (q *Queries) CheckSlugExists(ctx context.Context, slug string) (bool, error) {
+	row := q.db.QueryRow(ctx, checkSlugExists, slug)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const countPostsByUserToday = `-- name: CountPostsByUserToday :one
 SELECT COUNT(*) FROM posts
 WHERE publisher_id = $1 
@@ -27,25 +40,21 @@ func (q *Queries) CountPostsByUserToday(ctx context.Context, publisherID pgtype.
 
 const createPost = `-- name: CreatePost :one
 INSERT INTO posts (
-    id,
-    publisher_id,
-    title,
-    slug,
-    post_content,
-    num_rays,
-    num_comments
+    id, publisher_id, title, subtitle, slug, post_content, status, num_rays, num_comments
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
 )
-RETURNING id, publisher_id, title, slug, post_content, num_rays, num_comments, created_at, updated_at, deleted_at
+RETURNING id, publisher_id, title, subtitle, slug, post_content, num_rays, num_comments, status, created_at, updated_at, deleted_at
 `
 
 type CreatePostParams struct {
 	ID          pgtype.UUID `json:"id"`
 	PublisherID pgtype.UUID `json:"publisher_id"`
 	Title       string      `json:"title"`
+	Subtitle    *string     `json:"subtitle"`
 	Slug        string      `json:"slug"`
 	PostContent []byte      `json:"post_content"`
+	Status      PostStatus  `json:"status"`
 	NumRays     int32       `json:"num_rays"`
 	NumComments int32       `json:"num_comments"`
 }
@@ -55,8 +64,10 @@ func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (Post, e
 		arg.ID,
 		arg.PublisherID,
 		arg.Title,
+		arg.Subtitle,
 		arg.Slug,
 		arg.PostContent,
+		arg.Status,
 		arg.NumRays,
 		arg.NumComments,
 	)
@@ -65,10 +76,12 @@ func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (Post, e
 		&i.ID,
 		&i.PublisherID,
 		&i.Title,
+		&i.Subtitle,
 		&i.Slug,
 		&i.PostContent,
 		&i.NumRays,
 		&i.NumComments,
+		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -79,22 +92,23 @@ func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (Post, e
 const listPosts = `-- name: ListPosts :many
 SELECT 
     p.id,
+    p.publisher_id, 
     p.title,
+    p.subtitle,
     p.slug,
     p.post_content,
+    p.status,       
     p.num_rays,
     p.num_comments,
     p.created_at,
-    -- Join the Cover Image Data
     pi.image_url AS cover_image_url,
     pi.alt_text AS cover_image_alt,
-    -- Join the Publisher Data
     pr.username AS publisher_username,
     pr.profile_image_url AS publisher_avatar
 FROM posts p
 LEFT JOIN post_images pi ON p.id = pi.post_id AND pi.is_cover_image = true
 LEFT JOIN profiles pr ON p.publisher_id = pr.id
-WHERE p.deleted_at IS NULL
+WHERE p.deleted_at IS NULL AND p.status = 'published'
 ORDER BY p.created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -106,9 +120,12 @@ type ListPostsParams struct {
 
 type ListPostsRow struct {
 	ID                pgtype.UUID        `json:"id"`
+	PublisherID       pgtype.UUID        `json:"publisher_id"`
 	Title             string             `json:"title"`
+	Subtitle          *string            `json:"subtitle"`
 	Slug              string             `json:"slug"`
 	PostContent       []byte             `json:"post_content"`
+	Status            PostStatus         `json:"status"`
 	NumRays           int32              `json:"num_rays"`
 	NumComments       int32              `json:"num_comments"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
@@ -118,8 +135,7 @@ type ListPostsRow struct {
 	PublisherAvatar   *string            `json:"publisher_avatar"`
 }
 
-// Grab the image ONLY if it is marked as the cover image
-// Grab the publisher's profile
+// ONLY SHOW PUBLISHED POSTS in the main feed
 func (q *Queries) ListPosts(ctx context.Context, arg ListPostsParams) ([]ListPostsRow, error) {
 	rows, err := q.db.Query(ctx, listPosts, arg.Limit, arg.Offset)
 	if err != nil {
@@ -131,9 +147,12 @@ func (q *Queries) ListPosts(ctx context.Context, arg ListPostsParams) ([]ListPos
 		var i ListPostsRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.PublisherID,
 			&i.Title,
+			&i.Subtitle,
 			&i.Slug,
 			&i.PostContent,
+			&i.Status,
 			&i.NumRays,
 			&i.NumComments,
 			&i.CreatedAt,
@@ -155,7 +174,7 @@ func (q *Queries) ListPosts(ctx context.Context, arg ListPostsParams) ([]ListPos
 const permanentlyDeletePost = `-- name: PermanentlyDeletePost :one
 DELETE FROM posts
 WHERE id = $1 AND publisher_id = $2
-RETURNING id, publisher_id, title, slug, post_content, num_rays, num_comments, created_at, updated_at, deleted_at
+RETURNING id, publisher_id, title, subtitle, slug, post_content, num_rays, num_comments, status, created_at, updated_at, deleted_at
 `
 
 type PermanentlyDeletePostParams struct {
@@ -170,10 +189,12 @@ func (q *Queries) PermanentlyDeletePost(ctx context.Context, arg PermanentlyDele
 		&i.ID,
 		&i.PublisherID,
 		&i.Title,
+		&i.Subtitle,
 		&i.Slug,
 		&i.PostContent,
 		&i.NumRays,
 		&i.NumComments,
+		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -182,47 +203,163 @@ func (q *Queries) PermanentlyDeletePost(ctx context.Context, arg PermanentlyDele
 }
 
 const selectPostByID = `-- name: SelectPostByID :one
-SELECT id, publisher_id, title, slug, post_content, num_rays, num_comments, created_at, updated_at, deleted_at FROM posts
-WHERE id = $1 AND deleted_at IS NULL LIMIT 1
+SELECT 
+    p.id, p.publisher_id, p.title, p.subtitle, p.slug, p.post_content, p.num_rays, p.num_comments, p.status, p.created_at, p.updated_at, p.deleted_at,
+    -- Publisher Data (Added First/Last Name)
+    pr.first_name AS publisher_first_name,
+    pr.last_name AS publisher_last_name,
+    pr.username AS publisher_username,
+    pr.profile_image_url AS publisher_avatar,
+    pr.role AS publisher_role,
+    -- Image Data
+    pi.id AS image_id,
+    pi.image_url AS cover_image_url,
+    pi.alt_text AS cover_image_alt,
+    -- Video Data 
+    pv.id AS video_id,
+    pv.youtube_video_id,
+    pv.video_metadata
+FROM posts p
+LEFT JOIN profiles pr ON p.publisher_id = pr.id
+LEFT JOIN post_images pi ON p.id = pi.post_id AND pi.is_cover_image = true
+LEFT JOIN post_videos pv ON p.id = pv.post_id
+WHERE p.id = $1 AND p.deleted_at IS NULL LIMIT 1
 `
 
-func (q *Queries) SelectPostByID(ctx context.Context, id pgtype.UUID) (Post, error) {
+type SelectPostByIDRow struct {
+	ID                 pgtype.UUID        `json:"id"`
+	PublisherID        pgtype.UUID        `json:"publisher_id"`
+	Title              string             `json:"title"`
+	Subtitle           *string            `json:"subtitle"`
+	Slug               string             `json:"slug"`
+	PostContent        []byte             `json:"post_content"`
+	NumRays            int32              `json:"num_rays"`
+	NumComments        int32              `json:"num_comments"`
+	Status             PostStatus         `json:"status"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	PublisherFirstName *string            `json:"publisher_first_name"`
+	PublisherLastName  *string            `json:"publisher_last_name"`
+	PublisherUsername  *string            `json:"publisher_username"`
+	PublisherAvatar    *string            `json:"publisher_avatar"`
+	PublisherRole      *MembershipRole    `json:"publisher_role"`
+	ImageID            pgtype.UUID        `json:"image_id"`
+	CoverImageUrl      *string            `json:"cover_image_url"`
+	CoverImageAlt      *string            `json:"cover_image_alt"`
+	VideoID            pgtype.UUID        `json:"video_id"`
+	YoutubeVideoID     *string            `json:"youtube_video_id"`
+	VideoMetadata      []byte             `json:"video_metadata"`
+}
+
+func (q *Queries) SelectPostByID(ctx context.Context, id pgtype.UUID) (SelectPostByIDRow, error) {
 	row := q.db.QueryRow(ctx, selectPostByID, id)
-	var i Post
+	var i SelectPostByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.PublisherID,
 		&i.Title,
+		&i.Subtitle,
 		&i.Slug,
 		&i.PostContent,
 		&i.NumRays,
 		&i.NumComments,
+		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.PublisherFirstName,
+		&i.PublisherLastName,
+		&i.PublisherUsername,
+		&i.PublisherAvatar,
+		&i.PublisherRole,
+		&i.ImageID,
+		&i.CoverImageUrl,
+		&i.CoverImageAlt,
+		&i.VideoID,
+		&i.YoutubeVideoID,
+		&i.VideoMetadata,
 	)
 	return i, err
 }
 
 const selectPostBySlug = `-- name: SelectPostBySlug :one
-SELECT id, publisher_id, title, slug, post_content, num_rays, num_comments, created_at, updated_at, deleted_at FROM posts
-WHERE slug = $1 AND deleted_at IS NULL LIMIT 1
+SELECT 
+    p.id, p.publisher_id, p.title, p.subtitle, p.slug, p.post_content, p.num_rays, p.num_comments, p.status, p.created_at, p.updated_at, p.deleted_at,
+    -- Publisher Data
+    pr.first_name AS publisher_first_name,
+    pr.last_name AS publisher_last_name,
+    pr.username AS publisher_username,
+    pr.profile_image_url AS publisher_avatar,
+    pr.role AS publisher_role,
+    -- Image Data
+    pi.id AS image_id,
+    pi.image_url AS cover_image_url,
+    pi.alt_text AS cover_image_alt,
+    -- Video Data
+    pv.id AS video_id,
+    pv.youtube_video_id,
+    pv.video_metadata
+FROM posts p
+LEFT JOIN profiles pr ON p.publisher_id = pr.id
+LEFT JOIN post_images pi ON p.id = pi.post_id AND pi.is_cover_image = true
+LEFT JOIN post_videos pv ON p.id = pv.post_id
+WHERE p.slug = $1 AND p.deleted_at IS NULL LIMIT 1
 `
 
-func (q *Queries) SelectPostBySlug(ctx context.Context, slug string) (Post, error) {
+type SelectPostBySlugRow struct {
+	ID                 pgtype.UUID        `json:"id"`
+	PublisherID        pgtype.UUID        `json:"publisher_id"`
+	Title              string             `json:"title"`
+	Subtitle           *string            `json:"subtitle"`
+	Slug               string             `json:"slug"`
+	PostContent        []byte             `json:"post_content"`
+	NumRays            int32              `json:"num_rays"`
+	NumComments        int32              `json:"num_comments"`
+	Status             PostStatus         `json:"status"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	PublisherFirstName *string            `json:"publisher_first_name"`
+	PublisherLastName  *string            `json:"publisher_last_name"`
+	PublisherUsername  *string            `json:"publisher_username"`
+	PublisherAvatar    *string            `json:"publisher_avatar"`
+	PublisherRole      *MembershipRole    `json:"publisher_role"`
+	ImageID            pgtype.UUID        `json:"image_id"`
+	CoverImageUrl      *string            `json:"cover_image_url"`
+	CoverImageAlt      *string            `json:"cover_image_alt"`
+	VideoID            pgtype.UUID        `json:"video_id"`
+	YoutubeVideoID     *string            `json:"youtube_video_id"`
+	VideoMetadata      []byte             `json:"video_metadata"`
+}
+
+func (q *Queries) SelectPostBySlug(ctx context.Context, slug string) (SelectPostBySlugRow, error) {
 	row := q.db.QueryRow(ctx, selectPostBySlug, slug)
-	var i Post
+	var i SelectPostBySlugRow
 	err := row.Scan(
 		&i.ID,
 		&i.PublisherID,
 		&i.Title,
+		&i.Subtitle,
 		&i.Slug,
 		&i.PostContent,
 		&i.NumRays,
 		&i.NumComments,
+		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.PublisherFirstName,
+		&i.PublisherLastName,
+		&i.PublisherUsername,
+		&i.PublisherAvatar,
+		&i.PublisherRole,
+		&i.ImageID,
+		&i.CoverImageUrl,
+		&i.CoverImageAlt,
+		&i.VideoID,
+		&i.YoutubeVideoID,
+		&i.VideoMetadata,
 	)
 	return i, err
 }
@@ -232,7 +369,7 @@ UPDATE posts
 SET
     deleted_at = NOW()
 WHERE id = $1 AND publisher_id = $2
-RETURNING id, publisher_id, title, slug, post_content, num_rays, num_comments, created_at, updated_at, deleted_at
+RETURNING id, publisher_id, title, subtitle, slug, post_content, num_rays, num_comments, status, created_at, updated_at, deleted_at
 `
 
 type SoftDeletePostParams struct {
@@ -247,10 +384,12 @@ func (q *Queries) SoftDeletePost(ctx context.Context, arg SoftDeletePostParams) 
 		&i.ID,
 		&i.PublisherID,
 		&i.Title,
+		&i.Subtitle,
 		&i.Slug,
 		&i.PostContent,
 		&i.NumRays,
 		&i.NumComments,
+		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -262,21 +401,25 @@ const updatePost = `-- name: UpdatePost :one
 UPDATE posts
 SET 
     title = $3,
-    slug = $4,
-    post_content = $5,
-    num_rays = $6,
-    num_comments = $7,
+    subtitle = $4,
+    slug = $5,
+    post_content = $6,
+    status = $7,
+    num_rays = $8,
+    num_comments = $9,
     updated_at = NOW()
-WHERE id = $1 AND publisher_id = $2 AND deleted_at IS NULL -- do we need to include publisher id to limit only publishers to update?
-RETURNING id, publisher_id, title, slug, post_content, num_rays, num_comments, created_at, updated_at, deleted_at
+WHERE id = $1 AND publisher_id = $2 AND deleted_at IS NULL 
+RETURNING id, publisher_id, title, subtitle, slug, post_content, num_rays, num_comments, status, created_at, updated_at, deleted_at
 `
 
 type UpdatePostParams struct {
 	ID          pgtype.UUID `json:"id"`
 	PublisherID pgtype.UUID `json:"publisher_id"`
 	Title       string      `json:"title"`
+	Subtitle    *string     `json:"subtitle"`
 	Slug        string      `json:"slug"`
 	PostContent []byte      `json:"post_content"`
+	Status      PostStatus  `json:"status"`
 	NumRays     int32       `json:"num_rays"`
 	NumComments int32       `json:"num_comments"`
 }
@@ -286,8 +429,10 @@ func (q *Queries) UpdatePost(ctx context.Context, arg UpdatePostParams) (Post, e
 		arg.ID,
 		arg.PublisherID,
 		arg.Title,
+		arg.Subtitle,
 		arg.Slug,
 		arg.PostContent,
+		arg.Status,
 		arg.NumRays,
 		arg.NumComments,
 	)
@@ -296,10 +441,12 @@ func (q *Queries) UpdatePost(ctx context.Context, arg UpdatePostParams) (Post, e
 		&i.ID,
 		&i.PublisherID,
 		&i.Title,
+		&i.Subtitle,
 		&i.Slug,
 		&i.PostContent,
 		&i.NumRays,
 		&i.NumComments,
+		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
