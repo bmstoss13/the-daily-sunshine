@@ -270,3 +270,26 @@ func ConvertRichPostForList(sqlcRow ListPostsRow) domain.Post {
 
 	return convertedPost
 }
+
+func ConvertSearchPostRow(sqlcRow SearchPostsRow) domain.Post {
+	convertedPost := domain.Post{
+		ID:        PgUUIDToString(sqlcRow.ID),
+		Title:     sqlcRow.Title,
+		Subtitle:  sqlcRow.Subtitle,
+		Slug:      sqlcRow.Slug,
+		CreatedAt: sqlcRow.CreatedAt.Time,
+	}
+
+	// Map the Publisher Data
+	if sqlcRow.PublisherUsername != nil {
+		convertedPost.Publisher = &domain.Profile{
+			Username:        *sqlcRow.PublisherUsername,
+			ProfileImageUrl: "", // Default to empty string
+		}
+		if sqlcRow.PublisherAvatar != nil {
+			convertedPost.Publisher.ProfileImageUrl = *sqlcRow.PublisherAvatar
+		}
+	}
+
+	return convertedPost
+}
