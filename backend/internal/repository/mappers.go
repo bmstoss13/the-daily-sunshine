@@ -62,37 +62,211 @@ func ConvertProfile(sqlcProfile Profile) domain.Profile {
 	return convertedProfile
 }
 
-// func ConvertProfileToSQL(profile domain.Profile) (Profile, error) {
-// 	profileId, err := StringToPgUUID(profile.ID)
-// 	if err != nil {
-// 		return Profile{}, fmt.Errorf("[mappers.go] ConvertProfileToSQL: an error occurred converting profile id to pg uuid: %w", err)
-// 	}
-// 	convertedProfile := Profile{
-// 		ID:              profileId,
-// 		FirstName:       profile.FirstName,
-// 		LastName:        profile.LastName,
-// 		Username:        profile.Username,
-// 		NumRaysReceived: int32(profile.NumRays),
-// 		Role:            string(profile.Role),
+func ConvertPost(sqlcPost Post) domain.Post {
 
-// 		CreatedAt: pgtype.Timestamptz{profile.CreatedAt, pgtype.Infinity, true},
-// 		UpdatedAt: pgtype.Timestamptz{profile.UpdatedAt, pgtype.Infinity, true},
-// 	}
+	convertedPost := domain.Post{
+		ID:          PgUUIDToString(sqlcPost.ID),
+		PublisherID: PgUUIDToString(sqlcPost.PublisherID),
+		Title:       sqlcPost.Title,
+		Subtitle:    sqlcPost.Subtitle,
+		Slug:        sqlcPost.Slug,
+		Status:      domain.PostStatus(sqlcPost.Status),
+		NumRays:     int64(sqlcPost.NumRays),
+		NumComments: int64(sqlcPost.NumComments),
+		CreatedAt:   sqlcPost.CreatedAt.Time,
+		UpdatedAt:   sqlcPost.UpdatedAt.Time,
+	}
 
-// 	if profile.ProfileImageUrl != "" {
-// 		convertedProfile.ProfileImageUrl = &profile.ProfileImageUrl
-// 	} else {
-// 		convertedProfile.ProfileImageUrl = nil // Or a default URL string
-// 	}
+	if sqlcPost.PostContent != nil {
+		postContent := string(sqlcPost.PostContent)
+		convertedPost.Content = &postContent
+	}
 
-// 	if profile.Bio != nil {
-// 		bioStr := *profile.Bio
-// 		convertedProfile.ProfileBio = []byte(bioStr)
-// 	}
+	if sqlcPost.DeletedAt.Valid {
+		convertedPost.DeletedAt = &sqlcPost.DeletedAt.Time
+	}
 
-// 	if profile.DeletedAt != nil {
-// 		convertedProfile.DeletedAt = pgtype.Timestamptz{*profile.DeletedAt, pgtype.Infinity, true}
-// 	}
+	return convertedPost
+}
 
-// 	return convertedProfile, nil
-// }
+func ConvertRichPost(sqlcRow SelectPostByIDRow) domain.Post {
+	convertedPost := domain.Post{
+		ID:          PgUUIDToString(sqlcRow.ID),
+		PublisherID: PgUUIDToString(sqlcRow.PublisherID),
+		Title:       sqlcRow.Title,
+		Subtitle:    sqlcRow.Subtitle,
+		Slug:        sqlcRow.Slug,
+		Status:      domain.PostStatus(sqlcRow.Status),
+		NumRays:     int64(sqlcRow.NumRays),
+		NumComments: int64(sqlcRow.NumComments),
+		CreatedAt:   sqlcRow.CreatedAt.Time,
+		UpdatedAt:   sqlcRow.UpdatedAt.Time,
+	}
+
+	if len(sqlcRow.PostContent) > 0 {
+		postContent := string(sqlcRow.PostContent)
+		convertedPost.Content = &postContent
+	}
+
+	if sqlcRow.DeletedAt.Valid {
+		convertedPost.DeletedAt = &sqlcRow.DeletedAt.Time
+	}
+
+	if sqlcRow.PublisherUsername != nil {
+		convertedPost.Publisher = &domain.Profile{
+			ID:              PgUUIDToString(sqlcRow.PublisherID),
+			FirstName:       *sqlcRow.PublisherFirstName,
+			LastName:        *sqlcRow.PublisherLastName,
+			Username:        *sqlcRow.PublisherUsername,
+			Role:            domain.MembershipRole(*sqlcRow.PublisherRole),
+			ProfileImageUrl: "",
+		}
+		if sqlcRow.PublisherAvatar != nil {
+			convertedPost.Publisher.ProfileImageUrl = *sqlcRow.PublisherAvatar
+		}
+	}
+
+	if sqlcRow.ImageID.Valid {
+		convertedPost.CoverImage = &domain.PostImage{
+			ID:       PgUUIDToString(sqlcRow.ImageID),
+			PostID:   PgUUIDToString(sqlcRow.ID),
+			ImageURL: "",
+			AltText:  "",
+		}
+		if sqlcRow.CoverImageUrl != nil {
+			convertedPost.CoverImage.ImageURL = *sqlcRow.CoverImageUrl
+		}
+		if sqlcRow.CoverImageAlt != nil {
+			convertedPost.CoverImage.AltText = *sqlcRow.CoverImageAlt
+		}
+	}
+
+	if sqlcRow.VideoID.Valid {
+		convertedPost.Video = &domain.PostVideo{
+			ID:             PgUUIDToString(sqlcRow.VideoID),
+			PostID:         PgUUIDToString(sqlcRow.ID),
+			YouTubeVideoID: "",
+		}
+
+		if sqlcRow.YoutubeVideoID != nil {
+			convertedPost.Video.YouTubeVideoID = *sqlcRow.YoutubeVideoID
+		}
+		if len(sqlcRow.VideoMetadata) > 0 {
+			metaStr := string(sqlcRow.VideoMetadata)
+			convertedPost.Video.VideoMetadata = metaStr
+		}
+	}
+	return convertedPost
+}
+
+func ConvertRichPostBySlug(sqlcRow SelectPostBySlugRow) domain.Post {
+	convertedPost := domain.Post{
+		ID:          PgUUIDToString(sqlcRow.ID),
+		PublisherID: PgUUIDToString(sqlcRow.PublisherID),
+		Title:       sqlcRow.Title,
+		Subtitle:    sqlcRow.Subtitle,
+		Slug:        sqlcRow.Slug,
+		Status:      domain.PostStatus(sqlcRow.Status),
+		NumRays:     int64(sqlcRow.NumRays),
+		NumComments: int64(sqlcRow.NumComments),
+		CreatedAt:   sqlcRow.CreatedAt.Time,
+		UpdatedAt:   sqlcRow.UpdatedAt.Time,
+	}
+
+	if len(sqlcRow.PostContent) > 0 {
+		postContent := string(sqlcRow.PostContent)
+		convertedPost.Content = &postContent
+	}
+
+	if sqlcRow.DeletedAt.Valid {
+		convertedPost.DeletedAt = &sqlcRow.DeletedAt.Time
+	}
+
+	if sqlcRow.PublisherUsername != nil {
+		convertedPost.Publisher = &domain.Profile{
+			ID:              PgUUIDToString(sqlcRow.PublisherID),
+			FirstName:       *sqlcRow.PublisherFirstName,
+			LastName:        *sqlcRow.PublisherLastName,
+			Username:        *sqlcRow.PublisherUsername,
+			Role:            domain.MembershipRole(*sqlcRow.PublisherRole),
+			ProfileImageUrl: "",
+		}
+		if sqlcRow.PublisherAvatar != nil {
+			convertedPost.Publisher.ProfileImageUrl = *sqlcRow.PublisherAvatar
+		}
+	}
+
+	if sqlcRow.ImageID.Valid {
+		convertedPost.CoverImage = &domain.PostImage{
+			ID:       PgUUIDToString(sqlcRow.ImageID),
+			PostID:   PgUUIDToString(sqlcRow.ID),
+			ImageURL: "",
+			AltText:  "",
+		}
+		if sqlcRow.CoverImageUrl != nil {
+			convertedPost.CoverImage.ImageURL = *sqlcRow.CoverImageUrl
+		}
+		if sqlcRow.CoverImageAlt != nil {
+			convertedPost.CoverImage.AltText = *sqlcRow.CoverImageAlt
+		}
+	}
+
+	if sqlcRow.VideoID.Valid {
+		convertedPost.Video = &domain.PostVideo{
+			ID:             PgUUIDToString(sqlcRow.VideoID),
+			PostID:         PgUUIDToString(sqlcRow.ID),
+			YouTubeVideoID: "",
+		}
+
+		if sqlcRow.YoutubeVideoID != nil {
+			convertedPost.Video.YouTubeVideoID = *sqlcRow.YoutubeVideoID
+		}
+		if len(sqlcRow.VideoMetadata) > 0 {
+			metaStr := string(sqlcRow.VideoMetadata)
+			convertedPost.Video.VideoMetadata = metaStr
+		}
+	}
+	return convertedPost
+}
+
+func ConvertRichPostForList(sqlcRow ListPostsRow) domain.Post {
+	convertedPost := domain.Post{
+		ID:          PgUUIDToString(sqlcRow.ID),
+		PublisherID: PgUUIDToString(sqlcRow.PublisherID),
+		Title:       sqlcRow.Title,
+		Subtitle:    sqlcRow.Subtitle,
+		Slug:        sqlcRow.Slug,
+		Status:      domain.PostStatus(sqlcRow.Status),
+		NumRays:     int64(sqlcRow.NumRays),
+		NumComments: int64(sqlcRow.NumComments),
+		CreatedAt:   sqlcRow.CreatedAt.Time,
+	}
+
+	if len(sqlcRow.PostContent) > 0 {
+		postContent := string(sqlcRow.PostContent)
+		convertedPost.Content = &postContent
+	}
+
+	if sqlcRow.PublisherUsername != nil {
+		convertedPost.Publisher = &domain.Profile{
+			Username:        *sqlcRow.PublisherUsername,
+			ProfileImageUrl: "",
+		}
+		if sqlcRow.PublisherAvatar != nil {
+			convertedPost.Publisher.ProfileImageUrl = *sqlcRow.PublisherAvatar
+		}
+	}
+
+	if sqlcRow.CoverImageUrl != nil {
+		convertedPost.CoverImage = &domain.PostImage{
+			PostID:   PgUUIDToString(sqlcRow.ID), // Link it back to the parent post
+			ImageURL: *sqlcRow.CoverImageUrl,
+			AltText:  "", // Default empty
+		}
+		if sqlcRow.CoverImageAlt != nil {
+			convertedPost.CoverImage.AltText = *sqlcRow.CoverImageAlt
+		}
+	}
+
+	return convertedPost
+}

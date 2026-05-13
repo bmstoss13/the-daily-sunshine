@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
+	"time"
 
 	"github.com/bmstoss13/the-daily-sunshine/internal/config"
 	"github.com/bmstoss13/the-daily-sunshine/internal/handler"
@@ -69,8 +71,21 @@ func main() {
 		protected.PATCH("/profiles/deactivate", profileHandler.SoftDeleteProfileHandler)
 	}
 
+	srv := &http.Server{
+		Addr:         ":8080",
+		Handler:      router,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
 	log.Println("Starting The Daily Sunshine API on port 8080...")
-	if err := router.Run(":8080"); err != nil {
+
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+	// log.Println("Starting The Daily Sunshine API on port 8080...")
+	// if err := router.Run(":8080"); err != nil {
+	// 	log.Fatalf("Failed to start server: %v", err)
+	// }
 }

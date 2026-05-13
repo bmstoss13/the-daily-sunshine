@@ -54,6 +54,49 @@ func (ns NullMembershipRole) Value() (driver.Value, error) {
 	return string(ns.MembershipRole), nil
 }
 
+type PostStatus string
+
+const (
+	PostStatusDraft     PostStatus = "draft"
+	PostStatusPublished PostStatus = "published"
+	PostStatusArchived  PostStatus = "archived"
+)
+
+func (e *PostStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PostStatus(s)
+	case string:
+		*e = PostStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PostStatus: %T", src)
+	}
+	return nil
+}
+
+type NullPostStatus struct {
+	PostStatus PostStatus `json:"post_status"`
+	Valid      bool       `json:"valid"` // Valid is true if PostStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPostStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.PostStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PostStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPostStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PostStatus), nil
+}
+
 type Comment struct {
 	ID              pgtype.UUID        `json:"id"`
 	PostID          pgtype.UUID        `json:"post_id"`
@@ -77,10 +120,12 @@ type Post struct {
 	ID          pgtype.UUID        `json:"id"`
 	PublisherID pgtype.UUID        `json:"publisher_id"`
 	Title       string             `json:"title"`
+	Subtitle    *string            `json:"subtitle"`
 	Slug        string             `json:"slug"`
 	PostContent []byte             `json:"post_content"`
 	NumRays     int32              `json:"num_rays"`
 	NumComments int32              `json:"num_comments"`
+	Status      PostStatus         `json:"status"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
@@ -90,7 +135,7 @@ type PostImage struct {
 	ID               pgtype.UUID        `json:"id"`
 	PostID           pgtype.UUID        `json:"post_id"`
 	ImageUrl         string             `json:"image_url"`
-	ImageDescription string             `json:"image_description"`
+	ImageDescription *string            `json:"image_description"`
 	AltText          *string            `json:"alt_text"`
 	IsCoverImage     bool               `json:"is_cover_image"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`

@@ -31,7 +31,7 @@ func (q *Queries) CheckIfPostIsSaved(ctx context.Context, arg CheckIfPostIsSaved
 }
 
 const listSavedPostsForUser = `-- name: ListSavedPostsForUser :many
-SELECT p.id, p.publisher_id, p.title, p.slug, p.post_content, p.num_rays, p.num_comments, p.created_at, p.updated_at, p.deleted_at 
+SELECT p.id, p.publisher_id, p.title, p.subtitle, p.slug, p.post_content, p.num_rays, p.num_comments, p.status, p.created_at, p.updated_at, p.deleted_at 
 FROM posts p
 INNER JOIN saved_posts sp ON p.id = sp.post_id
 WHERE sp.user_id = $1 AND p.deleted_at IS NULL
@@ -58,10 +58,12 @@ func (q *Queries) ListSavedPostsForUser(ctx context.Context, arg ListSavedPostsF
 			&i.ID,
 			&i.PublisherID,
 			&i.Title,
+			&i.Subtitle,
 			&i.Slug,
 			&i.PostContent,
 			&i.NumRays,
 			&i.NumComments,
+			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
