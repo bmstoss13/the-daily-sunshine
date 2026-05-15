@@ -59,7 +59,7 @@ type mockImageStorage struct {
 	lastDeletedURL  string
 }
 
-func (m *mockImageStorage) UploadProfilePicture(_ context.Context, fileBytes []byte, fileName string) (string, error) {
+func (m *mockImageStorage) UploadPicture(_ context.Context, fileBytes []byte, fileName string) (string, error) {
 	m.uploadCalled = true
 	m.lastFileBytes = append([]byte(nil), fileBytes...)
 	m.lastFileName = fileName
@@ -69,7 +69,7 @@ func (m *mockImageStorage) UploadProfilePicture(_ context.Context, fileBytes []b
 	return m.mockURL, nil
 }
 
-func (m *mockImageStorage) DeleteProfilePicture(_ context.Context, fullImageURL string) error {
+func (m *mockImageStorage) DeletePicture(_ context.Context, fullImageURL string) error {
 	m.deleteCalled = true
 	m.lastDeletedURL = fullImageURL
 	if m.mockDeleteError != nil {

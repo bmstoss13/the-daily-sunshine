@@ -20,17 +20,17 @@ type ProfileRepository interface {
 	SetProfileSubscriberTier(ctx context.Context, actorUserID string, userID string, tier domain.SubscriberTier) (domain.Profile, error)
 }
 
-type ImageStorage interface {
-	UploadProfilePicture(ctx context.Context, fileBytes []byte, fileName string) (string, error)
-	DeleteProfilePicture(ctx context.Context, fullImageURL string) error
+type ProfileImageStorage interface {
+	UploadPicture(ctx context.Context, fileBytes []byte, fileName string) (string, error)
+	DeletePicture(ctx context.Context, fullImageURL string) error
 }
 
 type ProfileService struct {
 	repo         ProfileRepository
-	imageStorage ImageStorage
+	imageStorage ProfileImageStorage
 }
 
-func NewProfileService(repo ProfileRepository, imageStorage ImageStorage) *ProfileService {
+func NewProfileService(repo ProfileRepository, imageStorage ProfileImageStorage) *ProfileService {
 	return &ProfileService{
 		repo:         repo,
 		imageStorage: imageStorage,
@@ -111,7 +111,7 @@ func (s *ProfileService) CreateUserProfile(ctx context.Context, requestingUserID
 		// unique, organized file name: "profiles/user-uuid/avatar.jpg"
 		fileName := fmt.Sprintf("profiles/%s/avatar%s", requestingUserID, fileExtension)
 
-		publicURL, err := s.imageStorage.UploadProfilePicture(ctx, imageBytes, fileName)
+		publicURL, err := s.imageStorage.UploadPicture(ctx, imageBytes, fileName)
 		if err != nil {
 			// If the image fails to upload, abort profile creation
 			return domain.Profile{}, fmt.Errorf("[profile_service.go] CreateUserProfile: failed to upload profile picture: %w", err)
@@ -122,7 +122,7 @@ func (s *ProfileService) CreateUserProfile(ctx context.Context, requestingUserID
 
 	createdProfile, err := s.repo.CreateProfile(ctx, requestingUserID, newProfile)
 	if err != nil {
-		imageErr := s.imageStorage.DeleteProfilePicture(ctx, newProfile.ProfileImageUrl)
+		imageErr := s.imageStorage.DeletePicture(ctx, newProfile.ProfileImageUrl)
 		if imageErr != nil {
 			log.Printf("[profile_service.go] CreateUserProfile: failed to delete profile picture with url %v: %v", newProfile.ProfileImageUrl, err)
 		}
@@ -157,7 +157,7 @@ func (s *ProfileService) UpdateUserProfile(ctx context.Context, requestingUserID
 		// unique, organized file name: "profiles/user-uuid/avatar.jpg"
 		fileName := fmt.Sprintf("profiles/%s/avatar%s", requestingUserID, fileExtension)
 
-		publicURL, err := s.imageStorage.UploadProfilePicture(ctx, imageBytes, fileName)
+		publicURL, err := s.imageStorage.UploadPicture(ctx, imageBytes, fileName)
 		if err != nil {
 			// If the image fails to upload, abort profile creation
 			return domain.Profile{}, fmt.Errorf("[profile_service.go] UpdateUserProfile: failed to upload profile picture: %w", err)
@@ -171,7 +171,7 @@ func (s *ProfileService) UpdateUserProfile(ctx context.Context, requestingUserID
 
 	updatedProfile, err := s.repo.UpdateProfile(ctx, requestingUserID, profileWithUpdates)
 	if err != nil {
-		imageErr := s.imageStorage.DeleteProfilePicture(ctx, pubUrl)
+		imageErr := s.imageStorage.DeletePicture(ctx, pubUrl)
 		if imageErr != nil {
 			log.Printf("[profile_service.go] UpdateUserProfile: failed to delete profile picture with url %v: %v", pubUrl, err)
 		}
@@ -201,7 +201,7 @@ func (s *ProfileService) PermanentlyDeleteUserProfile(ctx context.Context, reque
 	}
 
 	if profileToDelete.ProfileImageUrl != "" {
-		imageErr := s.imageStorage.DeleteProfilePicture(ctx, profileToDelete.ProfileImageUrl)
+		imageErr := s.imageStorage.DeletePicture(ctx, profileToDelete.ProfileImageUrl)
 		if imageErr != nil {
 			log.Printf("WARNING: Orphaned profile image left in Cloudflare R2 for user %s. Error: %v\n", requestingUserID, imageErr)
 		}

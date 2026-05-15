@@ -26,7 +26,7 @@ func NewCloudflareR2Storage(client *s3.Client) *CloudflareR2Storage {
 	}
 }
 
-func (s *CloudflareR2Storage) UploadProfilePicture(ctx context.Context, fileBytes []byte, fileName string) (string, error) {
+func (s *CloudflareR2Storage) UploadPicture(ctx context.Context, fileBytes []byte, fileName string) (string, error) {
 	// failsafe to ensure the env is loaded
 	if s.bucketName == "" || s.publicURL == "" {
 		return "", fmt.Errorf("R2 bucket name or public URL is not configured")
@@ -57,7 +57,7 @@ func (s *CloudflareR2Storage) UploadProfilePicture(ctx context.Context, fileByte
 	return finalURL, nil
 }
 
-func (s *CloudflareR2Storage) DeleteProfilePicture(ctx context.Context, fullImageURL string) error {
+func (s *CloudflareR2Storage) DeletePicture(ctx context.Context, fullImageURL string) error {
 	// failsafe to ensure the env is loaded
 	if s.bucketName == "" || s.publicURL == "" {
 		return fmt.Errorf("R2 bucket name or public URL is not configured")
