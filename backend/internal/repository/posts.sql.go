@@ -210,7 +210,7 @@ SELECT
     pr.last_name AS publisher_last_name,
     pr.username AS publisher_username,
     pr.profile_image_url AS publisher_avatar,
-    pr.role AS publisher_role,
+    pr.subscriber_tier AS publisher_role,
     -- Image Data
     pi.id AS image_id,
     pi.image_url AS cover_image_url,
@@ -243,7 +243,7 @@ type SelectPostByIDRow struct {
 	PublisherLastName  *string            `json:"publisher_last_name"`
 	PublisherUsername  *string            `json:"publisher_username"`
 	PublisherAvatar    *string            `json:"publisher_avatar"`
-	PublisherRole      *MembershipRole    `json:"publisher_role"`
+	PublisherRole      *SubscriberTier    `json:"publisher_role"`
 	ImageID            pgtype.UUID        `json:"image_id"`
 	CoverImageUrl      *string            `json:"cover_image_url"`
 	CoverImageAlt      *string            `json:"cover_image_alt"`
@@ -291,7 +291,7 @@ SELECT
     pr.last_name AS publisher_last_name,
     pr.username AS publisher_username,
     pr.profile_image_url AS publisher_avatar,
-    pr.role AS publisher_role,
+    pr.subscriber_tier AS publisher_role,
     -- Image Data
     pi.id AS image_id,
     pi.image_url AS cover_image_url,
@@ -324,7 +324,7 @@ type SelectPostBySlugRow struct {
 	PublisherLastName  *string            `json:"publisher_last_name"`
 	PublisherUsername  *string            `json:"publisher_username"`
 	PublisherAvatar    *string            `json:"publisher_avatar"`
-	PublisherRole      *MembershipRole    `json:"publisher_role"`
+	PublisherRole      *SubscriberTier    `json:"publisher_role"`
 	ImageID            pgtype.UUID        `json:"image_id"`
 	CoverImageUrl      *string            `json:"cover_image_url"`
 	CoverImageAlt      *string            `json:"cover_image_alt"`

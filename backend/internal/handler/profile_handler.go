@@ -26,19 +26,19 @@ func NewProfileHandler(svc *service.ProfileService) *ProfileHandler {
 // `binding:"required"` tags tell Gin to automatically reject the request
 // if frontend forgets to send those fields
 type CreateProfileRequest struct {
-	FirstName string  `form:"first_name" binding:"required"`
-	LastName  string  `form:"last_name" binding:"required"`
-	Username  string  `form:"username" binding:"required"`
-	Role      string  `form:"role" binding:"required"`
-	Bio       *string `form:"bio"` // Pointer makes it optional in JSON
+	FirstName string `form:"first_name" binding:"required"`
+	LastName  string `form:"last_name" binding:"required"`
+	Username  string `form:"username" binding:"required"`
+	// SubscriberTier string  `form:"subscriber_tier" binding:"required"`
+	Bio *string `form:"bio"` // Pointer makes it optional in JSON
 }
 
 type UpdateProfileRequest struct {
-	FirstName string  `form:"first_name" binding:"required"`
-	LastName  string  `form:"last_name" binding:"required"`
-	Username  string  `form:"username" binding:"required"`
-	Role      string  `form:"role" binding:"required"`
-	Bio       *string `form:"bio"` // Pointer makes it optional in JSON
+	FirstName string `form:"first_name" binding:"required"`
+	LastName  string `form:"last_name" binding:"required"`
+	Username  string `form:"username" binding:"required"`
+	// SubscriberTier string  `form:"subscriber_tier" binding:"required"`
+	Bio *string `form:"bio"` // Pointer makes it optional in JSON
 }
 
 func (h *ProfileHandler) GetProfile(c *gin.Context) {
@@ -162,8 +162,8 @@ func (h *ProfileHandler) CreateProfileHandler(c *gin.Context) {
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
 		Username:  req.Username,
-		Role:      domain.MembershipRole(req.Role),
-		Bio:       req.Bio,
+		// SubscriberTier: domain.SubscriberTier(req.SubscriberTier),
+		Bio: req.Bio,
 	}
 
 	var imageBytes []byte
@@ -228,8 +228,8 @@ func (h *ProfileHandler) UpdateProfileHandler(c *gin.Context) {
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
 		Username:  req.Username,
-		Role:      domain.MembershipRole(req.Role),
-		Bio:       req.Bio,
+		// SubscriberTier: domain.SubscriberTier(req.SubscriberTier),
+		Bio: req.Bio,
 	}
 
 	var imageBytes []byte

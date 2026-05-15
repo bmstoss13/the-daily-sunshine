@@ -121,7 +121,7 @@ func (r *PostgresProfileRepository) CreateProfile(ctx context.Context, userID st
 			FirstName: newProfile.FirstName,
 			LastName:  newProfile.LastName,
 			Username:  newProfile.Username,
-			Role:      MembershipRole(newProfile.Role),
+			// SubscriberTier: SubscriberTier(newProfile.SubscriberTier),
 		}
 
 		if newProfile.ProfileImageUrl != "" {
@@ -129,7 +129,7 @@ func (r *PostgresProfileRepository) CreateProfile(ctx context.Context, userID st
 		}
 
 		if newProfile.Bio != nil {
-			params.ProfileBio = []byte(*newProfile.Bio)
+			params.ProfileBio = newProfile.Bio
 		}
 
 		sqlcProfile, err := q.CreateProfile(ctx, params)
@@ -159,7 +159,7 @@ func (r *PostgresProfileRepository) UpdateProfile(ctx context.Context, userID st
 			FirstName: profileWithUpdates.FirstName,
 			LastName:  profileWithUpdates.LastName,
 			Username:  profileWithUpdates.Username,
-			Role:      MembershipRole(profileWithUpdates.Role),
+			// SubscriberTier: SubscriberTier(profileWithUpdates.SubscriberTier),
 		}
 
 		if profileWithUpdates.ProfileImageUrl != "" {
@@ -167,7 +167,7 @@ func (r *PostgresProfileRepository) UpdateProfile(ctx context.Context, userID st
 		}
 
 		if profileWithUpdates.Bio != nil {
-			params.ProfileBio = []byte(*profileWithUpdates.Bio)
+			params.ProfileBio = profileWithUpdates.Bio
 		}
 
 		sqlcProfile, err := q.UpdateProfile(ctx, params)
@@ -224,4 +224,26 @@ func (r *PostgresProfileRepository) PermanentlyDeleteProfile(ctx context.Context
 	})
 
 	return deletedProfile, err
+}
+
+func (r *PostgresProfileRepository) SetProfileSubscriberTier(ctx context.Context, actorUserID string, userID string, tier domain.SubscriberTier) (domain.Profile, error) {
+	var updatedProfile domain.Profile
+	err := WithRLS(ctx, r.db, actorUserID, func(tx pgx.Tx) error {
+		q := New(tx)
+
+		pgID, err := StringToPgUUID(userID)
+		if err != nil {
+			return fmt.Errorf("[profile_repo.go] SetProfileSubscriberTier: invalid profile ID format: %w", err)
+		}
+
+		sqlcProfile, err := q.SetSubscriberTier(ctx, SetSubscriberTierParams{pgID, SubscriberTier(tier)})
+		if err != nil {
+			return fmt.Errorf("[profile_repo.go] SetProfileSubscriberTier: failed to set subscriber tier: %w", err)
+		}
+
+		updatedProfile = ConvertProfile(sqlcProfile)
+		return nil
+	})
+
+	return updatedProfile, err
 }

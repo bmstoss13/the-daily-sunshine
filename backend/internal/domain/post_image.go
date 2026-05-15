@@ -8,6 +8,6 @@ type PostImage struct {
 	ImageURL         string    `json:"image_url"`
 	ImageDescription string    `json:"image_description"`
 	AltText          string    `json:"alt_text"`
-	IsCoverImage     int32     `json:"is_cover_image"`
+	IsCoverImage     bool      `json:"is_cover_image"`
 	CreatedAt        time.Time `json:"created_at"`
 }

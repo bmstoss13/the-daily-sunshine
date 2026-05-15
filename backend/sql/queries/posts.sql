@@ -6,7 +6,7 @@ SELECT
     pr.last_name AS publisher_last_name,
     pr.username AS publisher_username,
     pr.profile_image_url AS publisher_avatar,
-    pr.role AS publisher_role,
+    pr.subscriber_tier AS publisher_role,
     -- Image Data
     pi.id AS image_id,
     pi.image_url AS cover_image_url,
@@ -29,7 +29,7 @@ SELECT
     pr.last_name AS publisher_last_name,
     pr.username AS publisher_username,
     pr.profile_image_url AS publisher_avatar,
-    pr.role AS publisher_role,
+    pr.subscriber_tier AS publisher_role,
     -- Image Data
     pi.id AS image_id,
     pi.image_url AS cover_image_url,

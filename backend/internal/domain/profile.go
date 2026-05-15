@@ -10,16 +10,23 @@ type Profile struct {
 	ProfileImageUrl string         `json:"profile_image_url"`
 	Bio             *string        `json:"profile_bio"`
 	NumRays         int            `json:"num_rays_received"`
-	Role            MembershipRole `json:"role"`
+	SubscriberTier  SubscriberTier `json:"subscriber_tier"`
+	AppRole         AppRole        `json:"app_role"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	DeletedAt       *time.Time     `json:"deleted_at"`
 }
 
-type MembershipRole string
+type SubscriberTier string
 
 const (
-	Member     MembershipRole = "Member"
-	Subscriber MembershipRole = "Subscriber"
-	Admin      MembershipRole = "Admin"
+	Member     SubscriberTier = "Member"
+	Subscriber SubscriberTier = "Subscriber"
+)
+
+type AppRole string
+
+const (
+	Admin AppRole = "Admin"
+	User  AppRole = "User"
 )

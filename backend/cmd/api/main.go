@@ -71,6 +71,13 @@ func main() {
 		protected.PATCH("/profiles/deactivate", profileHandler.SoftDeleteProfileHandler)
 	}
 
+	protectedAdmin := api.Group("/admin")
+	protectedAdmin.Use(middleware.RequireAuth())
+	protectedAdmin.Use(middleware.RequireAdmin(profileSvc))
+	{
+		// admin-only routes
+	}
+
 	srv := &http.Server{
 		Addr:         ":8080",
 		Handler:      router,

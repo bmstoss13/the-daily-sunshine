@@ -1,4 +1,5 @@
-CREATE TYPE membership_role AS ENUM ('Member', 'Subscriber', 'Admin');
+CREATE TYPE subscriber_tier AS ENUM ('Member', 'Subscriber');
+CREATE TYPE app_role AS ENUM ('User', 'Admin');
 
 CREATE TABLE profiles (
     id UUID PRIMARY KEY,
@@ -6,9 +7,10 @@ CREATE TABLE profiles (
     last_name TEXT NOT NULL,
     username TEXT UNIQUE NOT NULL,
     profile_image_url TEXT,
-    profile_bio JSONB,
+    profile_bio TEXT,
     num_rays_received INT NOT NULL DEFAULT 0,
-    role membership_role NOT NULL DEFAULT 'Member',
+    subscriber_tier subscriber_tier NOT NULL DEFAULT 'Member',
+    app_role app_role NOT NULL DEFAULT 'User',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ

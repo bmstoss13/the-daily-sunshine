@@ -11,47 +11,46 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type MembershipRole string
+type AppRole string
 
 const (
-	MembershipRoleMember     MembershipRole = "Member"
-	MembershipRoleSubscriber MembershipRole = "Subscriber"
-	MembershipRoleAdmin      MembershipRole = "Admin"
+	AppRoleUser  AppRole = "User"
+	AppRoleAdmin AppRole = "Admin"
 )
 
-func (e *MembershipRole) Scan(src interface{}) error {
+func (e *AppRole) Scan(src interface{}) error {
 	switch s := src.(type) {
 	case []byte:
-		*e = MembershipRole(s)
+		*e = AppRole(s)
 	case string:
-		*e = MembershipRole(s)
+		*e = AppRole(s)
 	default:
-		return fmt.Errorf("unsupported scan type for MembershipRole: %T", src)
+		return fmt.Errorf("unsupported scan type for AppRole: %T", src)
 	}
 	return nil
 }
 
-type NullMembershipRole struct {
-	MembershipRole MembershipRole `json:"membership_role"`
-	Valid          bool           `json:"valid"` // Valid is true if MembershipRole is not NULL
+type NullAppRole struct {
+	AppRole AppRole `json:"app_role"`
+	Valid   bool    `json:"valid"` // Valid is true if AppRole is not NULL
 }
 
 // Scan implements the Scanner interface.
-func (ns *NullMembershipRole) Scan(value interface{}) error {
+func (ns *NullAppRole) Scan(value interface{}) error {
 	if value == nil {
-		ns.MembershipRole, ns.Valid = "", false
+		ns.AppRole, ns.Valid = "", false
 		return nil
 	}
 	ns.Valid = true
-	return ns.MembershipRole.Scan(value)
+	return ns.AppRole.Scan(value)
 }
 
 // Value implements the driver Valuer interface.
-func (ns NullMembershipRole) Value() (driver.Value, error) {
+func (ns NullAppRole) Value() (driver.Value, error) {
 	if !ns.Valid {
 		return nil, nil
 	}
-	return string(ns.MembershipRole), nil
+	return string(ns.AppRole), nil
 }
 
 type PostStatus string
@@ -95,6 +94,48 @@ func (ns NullPostStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PostStatus), nil
+}
+
+type SubscriberTier string
+
+const (
+	SubscriberTierMember     SubscriberTier = "Member"
+	SubscriberTierSubscriber SubscriberTier = "Subscriber"
+)
+
+func (e *SubscriberTier) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = SubscriberTier(s)
+	case string:
+		*e = SubscriberTier(s)
+	default:
+		return fmt.Errorf("unsupported scan type for SubscriberTier: %T", src)
+	}
+	return nil
+}
+
+type NullSubscriberTier struct {
+	SubscriberTier SubscriberTier `json:"subscriber_tier"`
+	Valid          bool           `json:"valid"` // Valid is true if SubscriberTier is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullSubscriberTier) Scan(value interface{}) error {
+	if value == nil {
+		ns.SubscriberTier, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.SubscriberTier.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullSubscriberTier) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.SubscriberTier), nil
 }
 
 type Comment struct {
@@ -155,9 +196,10 @@ type Profile struct {
 	LastName        string             `json:"last_name"`
 	Username        string             `json:"username"`
 	ProfileImageUrl *string            `json:"profile_image_url"`
-	ProfileBio      []byte             `json:"profile_bio"`
+	ProfileBio      *string            `json:"profile_bio"`
 	NumRaysReceived int32              `json:"num_rays_received"`
-	Role            MembershipRole     `json:"role"`
+	SubscriberTier  SubscriberTier     `json:"subscriber_tier"`
+	AppRole         AppRole            `json:"app_role"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
