@@ -5,7 +5,7 @@ SELECT
     first_name,
     last_name,
     profile_image_url,
-    role
+    subscriber_tier
 FROM profiles 
 WHERE deleted_at IS NULL
 AND (

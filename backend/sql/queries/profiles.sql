@@ -23,11 +23,11 @@ INSERT INTO profiles (
     first_name, 
     last_name, 
     username, 
-    role,
+    -- subscriber_tier,
     profile_image_url, 
     profile_bio
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
+    $1, $2, $3, $4, $5, $6
 )
 RETURNING *;
 
@@ -37,9 +37,9 @@ SET
     first_name = $2,
     last_name = $3,
     username = $4,
-    role = $5,
-    profile_image_url = $6,
-    profile_bio = $7,
+    -- subscriber_tier = $5,
+    profile_image_url = $5,
+    profile_bio = $6,
     updated_at = NOW()
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING *;
@@ -59,3 +59,11 @@ RETURNING *;
 -- name: SelectProfilePhoto :one
 SELECT profile_image_url FROM profiles
 WHERE id = $1 LIMIT 1;
+
+-- name: SetSubscriberTier :one
+UPDATE profiles
+SET
+    subscriber_tier = $2,
+    updated_at = NOW()
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING *;

@@ -30,23 +30,22 @@ INSERT INTO profiles (
     first_name, 
     last_name, 
     username, 
-    role,
+    -- subscriber_tier,
     profile_image_url, 
     profile_bio
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
+    $1, $2, $3, $4, $5, $6
 )
-RETURNING id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, role, created_at, updated_at, deleted_at
+RETURNING id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, subscriber_tier, app_role, created_at, updated_at, deleted_at
 `
 
 type CreateProfileParams struct {
-	ID              pgtype.UUID    `json:"id"`
-	FirstName       string         `json:"first_name"`
-	LastName        string         `json:"last_name"`
-	Username        string         `json:"username"`
-	Role            MembershipRole `json:"role"`
-	ProfileImageUrl *string        `json:"profile_image_url"`
-	ProfileBio      []byte         `json:"profile_bio"`
+	ID              pgtype.UUID `json:"id"`
+	FirstName       string      `json:"first_name"`
+	LastName        string      `json:"last_name"`
+	Username        string      `json:"username"`
+	ProfileImageUrl *string     `json:"profile_image_url"`
+	ProfileBio      *string     `json:"profile_bio"`
 }
 
 func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error) {
@@ -55,7 +54,6 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 		arg.FirstName,
 		arg.LastName,
 		arg.Username,
-		arg.Role,
 		arg.ProfileImageUrl,
 		arg.ProfileBio,
 	)
@@ -68,7 +66,8 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 		&i.ProfileImageUrl,
 		&i.ProfileBio,
 		&i.NumRaysReceived,
-		&i.Role,
+		&i.SubscriberTier,
+		&i.AppRole,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -77,7 +76,7 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 }
 
 const getProfileByID = `-- name: GetProfileByID :one
-SELECT id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, role, created_at, updated_at, deleted_at FROM profiles
+SELECT id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, subscriber_tier, app_role, created_at, updated_at, deleted_at FROM profiles
 WHERE id = $1 AND deleted_at IS NULL LIMIT 1
 `
 
@@ -92,7 +91,8 @@ func (q *Queries) GetProfileByID(ctx context.Context, id pgtype.UUID) (Profile, 
 		&i.ProfileImageUrl,
 		&i.ProfileBio,
 		&i.NumRaysReceived,
-		&i.Role,
+		&i.SubscriberTier,
+		&i.AppRole,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -101,7 +101,7 @@ func (q *Queries) GetProfileByID(ctx context.Context, id pgtype.UUID) (Profile, 
 }
 
 const getProfileByUsername = `-- name: GetProfileByUsername :one
-SELECT id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, role, created_at, updated_at, deleted_at FROM profiles
+SELECT id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, subscriber_tier, app_role, created_at, updated_at, deleted_at FROM profiles
 WHERE username = $1 AND deleted_at IS NULL LIMIT 1
 `
 
@@ -116,7 +116,8 @@ func (q *Queries) GetProfileByUsername(ctx context.Context, username string) (Pr
 		&i.ProfileImageUrl,
 		&i.ProfileBio,
 		&i.NumRaysReceived,
-		&i.Role,
+		&i.SubscriberTier,
+		&i.AppRole,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -125,7 +126,7 @@ func (q *Queries) GetProfileByUsername(ctx context.Context, username string) (Pr
 }
 
 const listProfiles = `-- name: ListProfiles :many
-SELECT id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, role, created_at, updated_at, deleted_at FROM profiles
+SELECT id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, subscriber_tier, app_role, created_at, updated_at, deleted_at FROM profiles
 WHERE deleted_at IS NULL
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
@@ -153,7 +154,8 @@ func (q *Queries) ListProfiles(ctx context.Context, arg ListProfilesParams) ([]P
 			&i.ProfileImageUrl,
 			&i.ProfileBio,
 			&i.NumRaysReceived,
-			&i.Role,
+			&i.SubscriberTier,
+			&i.AppRole,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -171,7 +173,7 @@ func (q *Queries) ListProfiles(ctx context.Context, arg ListProfilesParams) ([]P
 const permanentlyDeleteProfile = `-- name: PermanentlyDeleteProfile :one
 DELETE FROM profiles
 WHERE id = $1
-RETURNING id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, role, created_at, updated_at, deleted_at
+RETURNING id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, subscriber_tier, app_role, created_at, updated_at, deleted_at
 `
 
 func (q *Queries) PermanentlyDeleteProfile(ctx context.Context, id pgtype.UUID) (Profile, error) {
@@ -185,7 +187,8 @@ func (q *Queries) PermanentlyDeleteProfile(ctx context.Context, id pgtype.UUID) 
 		&i.ProfileImageUrl,
 		&i.ProfileBio,
 		&i.NumRaysReceived,
-		&i.Role,
+		&i.SubscriberTier,
+		&i.AppRole,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -205,12 +208,46 @@ func (q *Queries) SelectProfilePhoto(ctx context.Context, id pgtype.UUID) (*stri
 	return profile_image_url, err
 }
 
+const setSubscriberTier = `-- name: SetSubscriberTier :one
+UPDATE profiles
+SET
+    subscriber_tier = $2,
+    updated_at = NOW()
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, subscriber_tier, app_role, created_at, updated_at, deleted_at
+`
+
+type SetSubscriberTierParams struct {
+	ID             pgtype.UUID    `json:"id"`
+	SubscriberTier SubscriberTier `json:"subscriber_tier"`
+}
+
+func (q *Queries) SetSubscriberTier(ctx context.Context, arg SetSubscriberTierParams) (Profile, error) {
+	row := q.db.QueryRow(ctx, setSubscriberTier, arg.ID, arg.SubscriberTier)
+	var i Profile
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.Username,
+		&i.ProfileImageUrl,
+		&i.ProfileBio,
+		&i.NumRaysReceived,
+		&i.SubscriberTier,
+		&i.AppRole,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const softDeleteProfile = `-- name: SoftDeleteProfile :one
 UPDATE profiles
 SET
     deleted_at = NOW()
 WHERE id = $1
-RETURNING id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, role, created_at, updated_at, deleted_at
+RETURNING id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, subscriber_tier, app_role, created_at, updated_at, deleted_at
 `
 
 func (q *Queries) SoftDeleteProfile(ctx context.Context, id pgtype.UUID) (Profile, error) {
@@ -224,7 +261,8 @@ func (q *Queries) SoftDeleteProfile(ctx context.Context, id pgtype.UUID) (Profil
 		&i.ProfileImageUrl,
 		&i.ProfileBio,
 		&i.NumRaysReceived,
-		&i.Role,
+		&i.SubscriberTier,
+		&i.AppRole,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -238,22 +276,21 @@ SET
     first_name = $2,
     last_name = $3,
     username = $4,
-    role = $5,
-    profile_image_url = $6,
-    profile_bio = $7,
+    -- subscriber_tier = $5,
+    profile_image_url = $5,
+    profile_bio = $6,
     updated_at = NOW()
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, role, created_at, updated_at, deleted_at
+RETURNING id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, subscriber_tier, app_role, created_at, updated_at, deleted_at
 `
 
 type UpdateProfileParams struct {
-	ID              pgtype.UUID    `json:"id"`
-	FirstName       string         `json:"first_name"`
-	LastName        string         `json:"last_name"`
-	Username        string         `json:"username"`
-	Role            MembershipRole `json:"role"`
-	ProfileImageUrl *string        `json:"profile_image_url"`
-	ProfileBio      []byte         `json:"profile_bio"`
+	ID              pgtype.UUID `json:"id"`
+	FirstName       string      `json:"first_name"`
+	LastName        string      `json:"last_name"`
+	Username        string      `json:"username"`
+	ProfileImageUrl *string     `json:"profile_image_url"`
+	ProfileBio      *string     `json:"profile_bio"`
 }
 
 func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error) {
@@ -262,7 +299,6 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (P
 		arg.FirstName,
 		arg.LastName,
 		arg.Username,
-		arg.Role,
 		arg.ProfileImageUrl,
 		arg.ProfileBio,
 	)
@@ -275,7 +311,8 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (P
 		&i.ProfileImageUrl,
 		&i.ProfileBio,
 		&i.NumRaysReceived,
-		&i.Role,
+		&i.SubscriberTier,
+		&i.AppRole,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,

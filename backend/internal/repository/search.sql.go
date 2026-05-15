@@ -81,7 +81,7 @@ SELECT
     first_name,
     last_name,
     profile_image_url,
-    role
+    subscriber_tier
 FROM profiles 
 WHERE deleted_at IS NULL
 AND (
@@ -109,7 +109,7 @@ type SearchProfilesRow struct {
 	FirstName       string         `json:"first_name"`
 	LastName        string         `json:"last_name"`
 	ProfileImageUrl *string        `json:"profile_image_url"`
-	Role            MembershipRole `json:"role"`
+	SubscriberTier  SubscriberTier `json:"subscriber_tier"`
 }
 
 func (q *Queries) SearchProfiles(ctx context.Context, arg SearchProfilesParams) ([]SearchProfilesRow, error) {
@@ -127,7 +127,7 @@ func (q *Queries) SearchProfiles(ctx context.Context, arg SearchProfilesParams) 
 			&i.FirstName,
 			&i.LastName,
 			&i.ProfileImageUrl,
-			&i.Role,
+			&i.SubscriberTier,
 		); err != nil {
 			return nil, err
 		}

@@ -40,7 +40,7 @@ func (r *PostgresSearchRepository) SearchProfiles(ctx context.Context, searchQue
 			Username:        p.Username,
 			FirstName:       p.FirstName,
 			LastName:        p.LastName,
-			Role:            domain.MembershipRole(p.Role),
+			SubscriberTier:  domain.SubscriberTier(p.SubscriberTier),
 			ProfileImageUrl: profileImageUrl,
 		})
 	}
@@ -56,7 +56,7 @@ func (r *PostgresSearchRepository) SearchPosts(ctx context.Context, searchQuery 
 		return nil, fmt.Errorf("[search_repo.go] Failed to search posts with search query %v: %w", searchQuery, err)
 	}
 
-	var posts []domain.Post
+	posts := make([]domain.Post, len(sqlcPosts))
 	for i, p := range sqlcPosts {
 		posts[i] = ConvertSearchPostRow(p)
 	}

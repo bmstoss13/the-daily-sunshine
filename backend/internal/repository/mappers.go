@@ -33,12 +33,13 @@ func PgUUIDToString(pgUUID pgtype.UUID) string {
 
 func ConvertProfile(sqlcProfile Profile) domain.Profile {
 	convertedProfile := domain.Profile{
-		ID:        PgUUIDToString(sqlcProfile.ID),
-		FirstName: sqlcProfile.FirstName,
-		LastName:  sqlcProfile.LastName,
-		Username:  sqlcProfile.Username,
-		NumRays:   int(sqlcProfile.NumRaysReceived),
-		Role:      domain.MembershipRole(sqlcProfile.Role),
+		ID:             PgUUIDToString(sqlcProfile.ID),
+		FirstName:      sqlcProfile.FirstName,
+		LastName:       sqlcProfile.LastName,
+		Username:       sqlcProfile.Username,
+		NumRays:        int(sqlcProfile.NumRaysReceived),
+		SubscriberTier: domain.SubscriberTier(sqlcProfile.SubscriberTier),
+		AppRole:        domain.AppRole(sqlcProfile.AppRole),
 
 		CreatedAt: sqlcProfile.CreatedAt.Time,
 		UpdatedAt: sqlcProfile.UpdatedAt.Time,
@@ -51,8 +52,8 @@ func ConvertProfile(sqlcProfile Profile) domain.Profile {
 	}
 
 	if sqlcProfile.ProfileBio != nil {
-		bioStr := string(sqlcProfile.ProfileBio)
-		convertedProfile.Bio = &bioStr
+		bioStr := sqlcProfile.ProfileBio
+		convertedProfile.Bio = bioStr
 	}
 
 	if sqlcProfile.DeletedAt.Valid {
@@ -118,7 +119,7 @@ func ConvertRichPost(sqlcRow SelectPostByIDRow) domain.Post {
 			FirstName:       *sqlcRow.PublisherFirstName,
 			LastName:        *sqlcRow.PublisherLastName,
 			Username:        *sqlcRow.PublisherUsername,
-			Role:            domain.MembershipRole(*sqlcRow.PublisherRole),
+			SubscriberTier:  domain.SubscriberTier(*sqlcRow.PublisherRole),
 			ProfileImageUrl: "",
 		}
 		if sqlcRow.PublisherAvatar != nil {
@@ -188,7 +189,7 @@ func ConvertRichPostBySlug(sqlcRow SelectPostBySlugRow) domain.Post {
 			FirstName:       *sqlcRow.PublisherFirstName,
 			LastName:        *sqlcRow.PublisherLastName,
 			Username:        *sqlcRow.PublisherUsername,
-			Role:            domain.MembershipRole(*sqlcRow.PublisherRole),
+			SubscriberTier:  domain.SubscriberTier(*sqlcRow.PublisherRole),
 			ProfileImageUrl: "",
 		}
 		if sqlcRow.PublisherAvatar != nil {
