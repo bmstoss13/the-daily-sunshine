@@ -294,3 +294,35 @@ func ConvertSearchPostRow(sqlcRow SearchPostsRow) domain.Post {
 
 	return convertedPost
 }
+
+func ConvertPostImage(sqlcPostImage PostImage) domain.PostImage {
+	convertedPostImage := domain.PostImage{
+		ID:       PgUUIDToString(sqlcPostImage.ID),
+		PostID:   PgUUIDToString(sqlcPostImage.PostID),
+		ImageURL: sqlcPostImage.ImageUrl,
+		// ImageDescription: *sqlcPostImage.ImageDescription,
+		// AltText:          *sqlcPostImage.AltText,
+		IsCoverImage: sqlcPostImage.IsCoverImage,
+		CreatedAt:    sqlcPostImage.CreatedAt.Time,
+	}
+
+	if sqlcPostImage.ImageDescription != nil {
+		convertedPostImage.ImageDescription = *sqlcPostImage.ImageDescription
+	}
+
+	if sqlcPostImage.AltText != nil {
+		convertedPostImage.AltText = *sqlcPostImage.AltText
+	}
+
+	return convertedPostImage
+}
+
+func ConvertPostVideo(sqlcPostVideo PostVideo) domain.PostVideo {
+	return domain.PostVideo{
+		ID:             PgUUIDToString(sqlcPostVideo.ID),
+		PostID:         PgUUIDToString(sqlcPostVideo.PostID),
+		YouTubeVideoID: sqlcPostVideo.YoutubeVideoID,
+		VideoMetadata:  string(sqlcPostVideo.VideoMetadata),
+		CreatedAt:      sqlcPostVideo.CreatedAt.Time,
+	}
+}
