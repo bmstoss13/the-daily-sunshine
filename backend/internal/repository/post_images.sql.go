@@ -82,6 +82,26 @@ func (q *Queries) DeletePostImage(ctx context.Context, arg DeletePostImageParams
 	return i, err
 }
 
+const selectCoverImage = `-- name: SelectCoverImage :one
+SELECT id, post_id, image_url, image_description, alt_text, is_cover_image, created_at FROM post_images
+WHERE post_id = $1 AND is_cover_image = true
+`
+
+func (q *Queries) SelectCoverImage(ctx context.Context, postID pgtype.UUID) (PostImage, error) {
+	row := q.db.QueryRow(ctx, selectCoverImage, postID)
+	var i PostImage
+	err := row.Scan(
+		&i.ID,
+		&i.PostID,
+		&i.ImageUrl,
+		&i.ImageDescription,
+		&i.AltText,
+		&i.IsCoverImage,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const selectPostImageByID = `-- name: SelectPostImageByID :one
 SELECT id, post_id, image_url, image_description, alt_text, is_cover_image, created_at FROM post_images
 WHERE id = $1 LIMIT 1

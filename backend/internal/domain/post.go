@@ -18,6 +18,7 @@ type Post struct {
 
 	Publisher  *Profile
 	CoverImage *PostImage
+	Images     []PostImage
 	Video      *PostVideo
 }
 

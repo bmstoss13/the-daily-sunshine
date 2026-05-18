@@ -6,6 +6,10 @@ WHERE id = $1 LIMIT 1;
 SELECT * FROM post_images
 WHERE post_id = $1;
 
+-- name: SelectCoverImage :one
+SELECT * FROM post_images
+WHERE post_id = $1 AND is_cover_image = true;
+
 -- name: CreatePostImage :one
 INSERT INTO post_images (
     id,

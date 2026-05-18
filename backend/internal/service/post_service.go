@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/bmstoss13/the-daily-sunshine/internal/domain"
 )
@@ -21,6 +22,13 @@ type PostRepository interface {
 type PostImageStorage interface {
 	UploadPicture(ctx context.Context, fileBytes []byte, fileName string) (string, error)
 	DeletePicture(ctx context.Context, fullImageURL string) error
+}
+
+type ImagePayload struct {
+	imageBytes    []byte
+	fileExtension string
+	fullImageURL  string
+	isCoverImage  bool
 }
 
 type PostService struct {
@@ -86,7 +94,7 @@ func (s *PostService) IsSlugTaken(ctx context.Context, slug string) (bool, error
 	return doesExist, nil
 }
 
-func (s *PostService) CreateNewPost(ctx context.Context, userID string, newPost domain.Post, imageBytes []byte, fileExtension string, videoID string) (domain.Post, error) {
+func (s *PostService) CreateNewPost(ctx context.Context, userID string, newPost domain.Post, imageList []ImagePayload, videoID string) (domain.Post, error) {
 	if newPost.Content == nil {
 		return domain.Post{}, fmt.Errorf("[post_service.go] CreateNewPost: content is required.")
 	}
@@ -106,5 +114,29 @@ func (s *PostService) CreateNewPost(ctx context.Context, userID string, newPost 
 	// if len(imageBytes) > 0 {
 
 	// }
-	return domain.Post{}, nil
+
+	//Placeholder for post_image integration
+
+	for i, image := range imageList {
+		if len(image.imageBytes) > 0 {
+			fileName := fmt.Sprintf("posts/%s/%v", newPost.ID, i)
+			publicURL, err := s.imageStorage.UploadPicture(ctx, image.imageBytes, fileName)
+			if err != nil {
+				return domain.Post{}, fmt.Errorf("[post_service.go] CreateNewPost: failed to upload post picture: %w", err)
+			}
+			image.fullImageURL = publicURL
+		}
+	}
+
+	createdPost, err := s.repo.CreatePost(ctx, userID, newPost)
+	if err != nil {
+		for _, image := range imageList {
+			imageErr := s.imageStorage.DeletePicture(ctx, image.fullImageURL)
+			if imageErr != nil {
+				log.Printf("[post_service.go] CreateNewPost: failed to delete post image with url %v: %v", image.fullImageURL, err)
+			}
+		}
+		return domain.Post{}, fmt.Errorf("[post_service.go] CreateNewProfile: failed to insert into database: %w", err)
+	}
+	return createdPost, nil
 }
