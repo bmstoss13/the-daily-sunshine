@@ -13,18 +13,16 @@ import (
 
 const createPostVideo = `-- name: CreatePostVideo :one
 INSERT INTO post_videos (
-    id,
     post_id,
     youtube_video_id,
     video_metadata
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3
 )
 RETURNING id, post_id, youtube_video_id, video_metadata, created_at
 `
 
 type CreatePostVideoParams struct {
-	ID             pgtype.UUID `json:"id"`
 	PostID         pgtype.UUID `json:"post_id"`
 	YoutubeVideoID string      `json:"youtube_video_id"`
 	VideoMetadata  []byte      `json:"video_metadata"`
@@ -32,7 +30,6 @@ type CreatePostVideoParams struct {
 
 func (q *Queries) CreatePostVideo(ctx context.Context, arg CreatePostVideoParams) (PostVideo, error) {
 	row := q.db.QueryRow(ctx, createPostVideo,
-		arg.ID,
 		arg.PostID,
 		arg.YoutubeVideoID,
 		arg.VideoMetadata,

@@ -2,7 +2,7 @@ CREATE TYPE subscriber_tier AS ENUM ('Member', 'Subscriber');
 CREATE TYPE app_role AS ENUM ('User', 'Admin');
 
 CREATE TABLE profiles (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     username TEXT UNIQUE NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE profiles (
 CREATE TYPE post_status AS ENUM ('draft', 'published', 'archived');
 
 CREATE TABLE posts (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     publisher_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
     title TEXT NOT NULL,
     subtitle TEXT,
@@ -34,7 +34,7 @@ CREATE TABLE posts (
 );
 
 CREATE TABLE post_images (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     post_id UUID NOT NULL REFERENCES posts(id),
     image_url TEXT NOT NULL,
     image_description TEXT,
@@ -44,7 +44,7 @@ CREATE TABLE post_images (
 );
 
 CREATE TABLE post_videos (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     post_id UUID UNIQUE NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
     youtube_video_id TEXT NOT NULL,
     video_metadata JSONB,
@@ -52,7 +52,7 @@ CREATE TABLE post_videos (
 );
 
 CREATE TABLE comments (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
     publisher_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
     parent_comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
@@ -64,7 +64,7 @@ CREATE TABLE comments (
 );
 
 CREATE TABLE rays (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     publisher_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
     comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
@@ -75,7 +75,7 @@ CREATE TABLE rays (
 );
 
 CREATE TABLE follows (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     follower_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     following_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

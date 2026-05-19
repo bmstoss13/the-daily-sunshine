@@ -86,14 +86,9 @@ func (r *PostgresPostRepository) CreatePost(ctx context.Context, userID string, 
 	err := WithRLS(ctx, r.db, userID, func(tx pgx.Tx) error {
 		q := New(tx)
 
-		pgID, err := StringToPgUUID(newPost.ID)
-		if err != nil {
-			return fmt.Errorf("[post_repo.go] CreatePost: An error occurred while converting post id %v to pg id: %w", newPost.ID, err)
-		}
-
 		publisherPgID, pubErr := StringToPgUUID(userID)
 		if pubErr != nil {
-			return fmt.Errorf("[post_repo.go] CreatePost: An error occurred while converting user id %v to pg id: %w", userID, err)
+			return fmt.Errorf("[post_repo.go] CreatePost: An error occurred while converting user id %v to pg id: %w", userID, pubErr)
 		}
 
 		// safely handle nullable content
@@ -103,7 +98,6 @@ func (r *PostgresPostRepository) CreatePost(ctx context.Context, userID string, 
 		}
 
 		params := CreatePostParams{
-			ID:          pgID,
 			PublisherID: publisherPgID,
 			Title:       newPost.Title,
 			Subtitle:    newPost.Subtitle,

@@ -8,6 +8,19 @@ import (
 	"github.com/bmstoss13/the-daily-sunshine/internal/domain"
 )
 
+type PostImageInput struct {
+	ImageBytes    []byte
+	FileExtension string
+	AltText       *string
+	Description   *string
+	IsCoverImage  bool
+}
+
+type PostVideoInput struct {
+	YoutubeVideoID string
+	VideoMetadata  string
+}
+
 type PostRepository interface {
 	GetPostByID(ctx context.Context, userID string, postID string) (domain.Post, error)
 	GetPostBySlug(ctx context.Context, userID string, slug string) (domain.Post, error)
@@ -19,26 +32,41 @@ type PostRepository interface {
 	CheckSlugExists(ctx context.Context, slug string) (bool, error)
 }
 
+type PostImageRepository interface {
+	GetPostImageByID(ctx context.Context, userID string, imageID string) (domain.PostImage, error)
+	GetCoverImageOfPost(ctx context.Context, userID string, postID string) (domain.PostImage, error)
+	GetPostImagesByPost(ctx context.Context, userID string, postID string) ([]domain.PostImage, error)
+	CreatePostImage(ctx context.Context, userID string, newPostImage domain.PostImage) (domain.PostImage, error)
+	UpdatePostImage(ctx context.Context, userID string, postImageWithUpdates domain.PostImage) (domain.PostImage, error)
+	DeletePostImage(ctx context.Context, userID string, postID string, postImageID string) (domain.PostImage, error)
+}
+
+type PostVideoRepository interface {
+	GetPostVideoByID(ctx context.Context, userID string, videoID string) (domain.PostVideo, error)
+	GetPostVideoByPost(ctx context.Context, userID string, postID string) (domain.PostVideo, error)
+	GetListOfPostVideos(ctx context.Context, userID string, limit int32, offset int32) ([]domain.PostVideo, error)
+	CreatePostVideo(ctx context.Context, userID string, newVideo domain.PostVideo) (domain.PostVideo, error)
+	UpdatePostVideo(ctx context.Context, userID string, videoToUpdate domain.PostVideo) (domain.PostVideo, error)
+	DeletePostVideo(ctx context.Context, userID string, videoID string, postID string) (domain.PostVideo, error)
+}
+
 type PostImageStorage interface {
 	UploadPicture(ctx context.Context, fileBytes []byte, fileName string) (string, error)
 	DeletePicture(ctx context.Context, fullImageURL string) error
 }
 
-type ImagePayload struct {
-	imageBytes    []byte
-	fileExtension string
-	fullImageURL  string
-	isCoverImage  bool
-}
-
 type PostService struct {
 	repo         PostRepository
+	imageRepo    PostImageRepository
+	videoRepo    PostVideoRepository
 	imageStorage PostImageStorage
 }
 
-func NewPostService(repo PostRepository, imageStorage PostImageStorage) *PostService {
+func NewPostService(repo PostRepository, imageRepo PostImageRepository, videoRepo PostVideoRepository, imageStorage PostImageStorage) *PostService {
 	return &PostService{
 		repo:         repo,
+		imageRepo:    imageRepo,
+		videoRepo:    videoRepo,
 		imageStorage: imageStorage,
 	}
 }
@@ -94,9 +122,13 @@ func (s *PostService) IsSlugTaken(ctx context.Context, slug string) (bool, error
 	return doesExist, nil
 }
 
-func (s *PostService) CreateNewPost(ctx context.Context, userID string, newPost domain.Post, imageList []ImagePayload, videoID string) (domain.Post, error) {
-	if newPost.Content == nil {
-		return domain.Post{}, fmt.Errorf("[post_service.go] CreateNewPost: content is required.")
+func (s *PostService) CreateNewPost(ctx context.Context, userID string, newPost domain.Post, imageList []PostImageInput, video PostVideoInput) (domain.Post, error) {
+	if newPost.Title == "" {
+		return domain.Post{}, fmt.Errorf("[post_service.go] CreateNewPost: title is required.")
+	}
+
+	if newPost.Slug == "" {
+		return domain.Post{}, fmt.Errorf("[post_service.go] CreateNewPost: slug is required.")
 	}
 
 	slugExists, err := s.IsSlugTaken(ctx, newPost.Slug)
@@ -105,38 +137,52 @@ func (s *PostService) CreateNewPost(ctx context.Context, userID string, newPost 
 	}
 
 	if slugExists {
-		return domain.Post{}, fmt.Errorf("Slug exists")
+		return domain.Post{}, fmt.Errorf("Slug already exists")
 	}
 
-	// probably need to account for an array of images, new small struct for imageBytes []byte
-	// Need to also handle page_image, which should account for many
-	// for _, images := range postImages
-	// if len(imageBytes) > 0 {
-
-	// }
-
-	//Placeholder for post_image integration
-
-	for i, image := range imageList {
-		if len(image.imageBytes) > 0 {
-			fileName := fmt.Sprintf("posts/%s/%v", newPost.ID, i)
-			publicURL, err := s.imageStorage.UploadPicture(ctx, image.imageBytes, fileName)
-			if err != nil {
-				return domain.Post{}, fmt.Errorf("[post_service.go] CreateNewPost: failed to upload post picture: %w", err)
-			}
-			image.fullImageURL = publicURL
+	if newPost.Status == domain.Published {
+		if newPost.Content == nil {
+			return domain.Post{}, fmt.Errorf("[post_service.go] CreateNewPost: content is required.")
 		}
 	}
 
 	createdPost, err := s.repo.CreatePost(ctx, userID, newPost)
 	if err != nil {
-		for _, image := range imageList {
-			imageErr := s.imageStorage.DeletePicture(ctx, image.fullImageURL)
-			if imageErr != nil {
-				log.Printf("[post_service.go] CreateNewPost: failed to delete post image with url %v: %v", image.fullImageURL, err)
+		return domain.Post{}, fmt.Errorf("[post_service.go] CreateNewPost: failed to insert into database: %w", err)
+	}
+
+	for i, image := range imageList {
+		if len(image.ImageBytes) > 0 {
+			fileName := fmt.Sprintf("posts/%s/%v", createdPost.ID, i)
+			publicURL, err := s.imageStorage.UploadPicture(ctx, image.ImageBytes, fileName)
+			if err != nil {
+				return domain.Post{}, fmt.Errorf("[post_service.go] CreateNewPost: failed to upload post picture: %w", err)
+			}
+
+			imageParams := domain.PostImage{
+				PostID:           createdPost.ID,
+				ImageURL:         publicURL,
+				ImageDescription: image.Description,
+				AltText:          image.AltText,
+				IsCoverImage:     image.IsCoverImage,
+			}
+
+			newPostImage, imgErr := s.imageRepo.CreatePostImage(ctx, userID, imageParams)
+			if imgErr != nil {
+				deletePost, deletePostErr := s.repo.PermanentlyDeletePost(ctx, userID, createdPost.ID)
+				if deletePostErr != nil {
+					log.Printf("[post_service.go] CreateNewPost: failed to delete created post %v: %v", deletePost.ID, deletePostErr)
+				}
+
+				deleteImgErr := s.imageStorage.DeletePicture(ctx, publicURL)
+				if deleteImgErr != nil {
+					log.Printf("[post_service.go] CreateNewPost: failed to delete post image with url %v: %v", newPostImage.ImageURL, err)
+				}
+
+				return domain.Post{}, fmt.Errorf("[post_service.go] CreateNewPost: failed to create post in database: %w", imgErr)
 			}
 		}
-		return domain.Post{}, fmt.Errorf("[post_service.go] CreateNewProfile: failed to insert into database: %w", err)
 	}
+
 	return createdPost, nil
 }

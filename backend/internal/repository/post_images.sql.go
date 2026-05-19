@@ -13,20 +13,18 @@ import (
 
 const createPostImage = `-- name: CreatePostImage :one
 INSERT INTO post_images (
-    id,
     post_id,
     image_url,
     image_description,
     alt_text,
     is_cover_image
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5
 )
 RETURNING id, post_id, image_url, image_description, alt_text, is_cover_image, created_at
 `
 
 type CreatePostImageParams struct {
-	ID               pgtype.UUID `json:"id"`
 	PostID           pgtype.UUID `json:"post_id"`
 	ImageUrl         string      `json:"image_url"`
 	ImageDescription *string     `json:"image_description"`
@@ -36,7 +34,6 @@ type CreatePostImageParams struct {
 
 func (q *Queries) CreatePostImage(ctx context.Context, arg CreatePostImageParams) (PostImage, error) {
 	row := q.db.QueryRow(ctx, createPostImage,
-		arg.ID,
 		arg.PostID,
 		arg.ImageUrl,
 		arg.ImageDescription,

@@ -43,7 +43,7 @@ func (r *PostgresPostImageRepository) GetPostImageByID(ctx context.Context, user
 }
 
 func (r *PostgresPostImageRepository) GetCoverImageOfPost(ctx context.Context, userID string, postID string) (domain.PostImage, error) {
-	pgImageID, err := StringToPgUUID(postID)
+	pgPostID, err := StringToPgUUID(postID)
 	if err != nil {
 		return domain.PostImage{}, fmt.Errorf("[post_image_repo.go] GetCoverImageOfPost: failed to convert string to pg uuid: %w", err)
 	}
@@ -53,7 +53,7 @@ func (r *PostgresPostImageRepository) GetCoverImageOfPost(ctx context.Context, u
 	err = WithRLS(ctx, r.db, userID, func(tx pgx.Tx) error {
 		q := New(tx)
 
-		sqlcImagePost, err := q.SelectCoverImage(ctx, pgImageID)
+		sqlcImagePost, err := q.SelectCoverImage(ctx, pgPostID)
 		if err != nil {
 			return fmt.Errorf("[post_image_repo.go] GetCoverImageOfPost: An error occurred while retrieving cover image from post: %w", err)
 		}
@@ -96,22 +96,16 @@ func (r *PostgresPostImageRepository) CreatePostImage(ctx context.Context, userI
 	err := WithRLS(ctx, r.db, userID, func(tx pgx.Tx) error {
 		q := New(tx)
 
-		pgID, err := StringToPgUUID(newPostImage.ID)
-		if err != nil {
-			return fmt.Errorf("[post_image_repo.go] CreatePostImage: An error occurred while converting post image id %v to pg id: %w", newPostImage.ID, err)
-		}
-
 		postPgID, postErr := StringToPgUUID(newPostImage.PostID)
 		if postErr != nil {
-			return fmt.Errorf("[post_image_repo.go] CreatePostImage: An error occurred while converting post id %v to pg id: %w", newPostImage.PostID, err)
+			return fmt.Errorf("[post_image_repo.go] CreatePostImage: An error occurred while converting post id %v to pg id: %w", newPostImage.PostID, postErr)
 		}
 
 		params := CreatePostImageParams{
-			ID:               pgID,
 			PostID:           postPgID,
 			ImageUrl:         newPostImage.ImageURL,
-			ImageDescription: &newPostImage.ImageDescription,
-			AltText:          &newPostImage.AltText,
+			ImageDescription: newPostImage.ImageDescription,
+			AltText:          newPostImage.AltText,
 			IsCoverImage:     newPostImage.IsCoverImage,
 		}
 
@@ -146,8 +140,8 @@ func (r *PostgresPostImageRepository) UpdatePostImage(ctx context.Context, userI
 			ID:               pgID,
 			PostID:           postPgID,
 			ImageUrl:         postImageWithUpdates.ImageURL,
-			ImageDescription: &postImageWithUpdates.ImageDescription,
-			AltText:          &postImageWithUpdates.AltText,
+			ImageDescription: postImageWithUpdates.ImageDescription,
+			AltText:          postImageWithUpdates.AltText,
 			IsCoverImage:     postImageWithUpdates.IsCoverImage,
 		}
 

@@ -40,15 +40,14 @@ func (q *Queries) CountPostsByUserToday(ctx context.Context, publisherID pgtype.
 
 const createPost = `-- name: CreatePost :one
 INSERT INTO posts (
-    id, publisher_id, title, subtitle, slug, post_content, status, num_rays, num_comments
+    publisher_id, title, subtitle, slug, post_content, status, num_rays, num_comments
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9
+    $1, $2, $3, $4, $5, $6, $7, $8
 )
 RETURNING id, publisher_id, title, subtitle, slug, post_content, num_rays, num_comments, status, created_at, updated_at, deleted_at
 `
 
 type CreatePostParams struct {
-	ID          pgtype.UUID `json:"id"`
 	PublisherID pgtype.UUID `json:"publisher_id"`
 	Title       string      `json:"title"`
 	Subtitle    *string     `json:"subtitle"`
@@ -61,7 +60,6 @@ type CreatePostParams struct {
 
 func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (Post, error) {
 	row := q.db.QueryRow(ctx, createPost,
-		arg.ID,
 		arg.PublisherID,
 		arg.Title,
 		arg.Subtitle,
