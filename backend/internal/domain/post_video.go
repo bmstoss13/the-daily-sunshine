@@ -8,4 +8,6 @@ type PostVideo struct {
 	YouTubeVideoID string    `json:"youtube_video_id"`
 	VideoMetadata  string    `json:"video_metadata"`
 	CreatedAt      time.Time `json:"created_at"`
+
+	Post *Post
 }

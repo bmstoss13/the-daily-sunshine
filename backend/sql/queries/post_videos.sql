@@ -8,12 +8,11 @@ WHERE post_id = $1 LIMIT 1;
 
 -- name: CreatePostVideo :one
 INSERT INTO post_videos (
-    id,
     post_id,
     youtube_video_id,
     video_metadata
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3
 )
 RETURNING *;
 

@@ -12,14 +12,13 @@ WHERE post_id = $1 AND is_cover_image = true;
 
 -- name: CreatePostImage :one
 INSERT INTO post_images (
-    id,
     post_id,
     image_url,
     image_description,
     alt_text,
     is_cover_image
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5
 )
 RETURNING *;
 

@@ -132,13 +132,13 @@ func ConvertRichPost(sqlcRow SelectPostByIDRow) domain.Post {
 			ID:       PgUUIDToString(sqlcRow.ImageID),
 			PostID:   PgUUIDToString(sqlcRow.ID),
 			ImageURL: "",
-			AltText:  "",
+			AltText:  nil,
 		}
 		if sqlcRow.CoverImageUrl != nil {
 			convertedPost.CoverImage.ImageURL = *sqlcRow.CoverImageUrl
 		}
 		if sqlcRow.CoverImageAlt != nil {
-			convertedPost.CoverImage.AltText = *sqlcRow.CoverImageAlt
+			convertedPost.CoverImage.AltText = sqlcRow.CoverImageAlt
 		}
 	}
 
@@ -202,13 +202,13 @@ func ConvertRichPostBySlug(sqlcRow SelectPostBySlugRow) domain.Post {
 			ID:       PgUUIDToString(sqlcRow.ImageID),
 			PostID:   PgUUIDToString(sqlcRow.ID),
 			ImageURL: "",
-			AltText:  "",
+			AltText:  nil,
 		}
 		if sqlcRow.CoverImageUrl != nil {
 			convertedPost.CoverImage.ImageURL = *sqlcRow.CoverImageUrl
 		}
 		if sqlcRow.CoverImageAlt != nil {
-			convertedPost.CoverImage.AltText = *sqlcRow.CoverImageAlt
+			convertedPost.CoverImage.AltText = sqlcRow.CoverImageAlt
 		}
 	}
 
@@ -262,10 +262,10 @@ func ConvertRichPostForList(sqlcRow ListPostsRow) domain.Post {
 		convertedPost.CoverImage = &domain.PostImage{
 			PostID:   PgUUIDToString(sqlcRow.ID), // Link it back to the parent post
 			ImageURL: *sqlcRow.CoverImageUrl,
-			AltText:  "", // Default empty
+			AltText:  nil, // Default empty
 		}
 		if sqlcRow.CoverImageAlt != nil {
-			convertedPost.CoverImage.AltText = *sqlcRow.CoverImageAlt
+			convertedPost.CoverImage.AltText = sqlcRow.CoverImageAlt
 		}
 	}
 
@@ -307,11 +307,11 @@ func ConvertPostImage(sqlcPostImage PostImage) domain.PostImage {
 	}
 
 	if sqlcPostImage.ImageDescription != nil {
-		convertedPostImage.ImageDescription = *sqlcPostImage.ImageDescription
+		convertedPostImage.ImageDescription = sqlcPostImage.ImageDescription
 	}
 
 	if sqlcPostImage.AltText != nil {
-		convertedPostImage.AltText = *sqlcPostImage.AltText
+		convertedPostImage.AltText = sqlcPostImage.AltText
 	}
 
 	return convertedPostImage
@@ -324,5 +324,22 @@ func ConvertPostVideo(sqlcPostVideo PostVideo) domain.PostVideo {
 		YouTubeVideoID: sqlcPostVideo.YoutubeVideoID,
 		VideoMetadata:  string(sqlcPostVideo.VideoMetadata),
 		CreatedAt:      sqlcPostVideo.CreatedAt.Time,
+	}
+}
+
+func ConvertListVideoFeedRow(sqlcPostVideo ListVideoFeedRow) domain.PostVideo {
+	return domain.PostVideo{
+		ID:             PgUUIDToString(sqlcPostVideo.VideoID),
+		PostID:         PgUUIDToString(sqlcPostVideo.PostID),
+		YouTubeVideoID: sqlcPostVideo.YoutubeVideoID,
+		VideoMetadata:  string(sqlcPostVideo.VideoMetadata),
+		CreatedAt:      sqlcPostVideo.CreatedAt.Time,
+		Post: &domain.Post{
+			Title:       sqlcPostVideo.PostTitle,
+			Slug:        sqlcPostVideo.PostSlug,
+			PublisherID: PgUUIDToString(sqlcPostVideo.PublisherID),
+			NumRays:     int64(sqlcPostVideo.NumRays),
+			NumComments: int64(sqlcPostVideo.NumComments),
+		},
 	}
 }
