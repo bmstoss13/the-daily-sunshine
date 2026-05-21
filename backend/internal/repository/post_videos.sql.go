@@ -29,11 +29,7 @@ type CreatePostVideoParams struct {
 }
 
 func (q *Queries) CreatePostVideo(ctx context.Context, arg CreatePostVideoParams) (PostVideo, error) {
-	row := q.db.QueryRow(ctx, createPostVideo,
-		arg.PostID,
-		arg.YoutubeVideoID,
-		arg.VideoMetadata,
-	)
+	row := q.db.QueryRow(ctx, createPostVideo, arg.PostID, arg.YoutubeVideoID, arg.VideoMetadata)
 	var i PostVideo
 	err := row.Scan(
 		&i.ID,
