@@ -272,6 +272,48 @@ func ConvertRichPostForList(sqlcRow ListPostsRow) domain.Post {
 	return convertedPost
 }
 
+func ConvertRichPostForDay(sqlcRow SelectPostsOfTheDayRow) domain.Post {
+	convertedPost := domain.Post{
+		ID:          PgUUIDToString(sqlcRow.ID),
+		PublisherID: PgUUIDToString(sqlcRow.PublisherID),
+		Title:       sqlcRow.Title,
+		Subtitle:    sqlcRow.Subtitle,
+		Slug:        sqlcRow.Slug,
+		Status:      domain.PostStatus(sqlcRow.Status),
+		NumRays:     int64(sqlcRow.NumRays),
+		NumComments: int64(sqlcRow.NumComments),
+		CreatedAt:   sqlcRow.CreatedAt.Time,
+	}
+
+	if len(sqlcRow.PostContent) > 0 {
+		postContent := string(sqlcRow.PostContent)
+		convertedPost.Content = &postContent
+	}
+
+	if sqlcRow.PublisherUsername != nil {
+		convertedPost.Publisher = &domain.Profile{
+			Username:        *sqlcRow.PublisherUsername,
+			ProfileImageUrl: "",
+		}
+		if sqlcRow.PublisherAvatar != nil {
+			convertedPost.Publisher.ProfileImageUrl = *sqlcRow.PublisherAvatar
+		}
+	}
+
+	if sqlcRow.CoverImageUrl != nil {
+		convertedPost.CoverImage = &domain.PostImage{
+			PostID:   PgUUIDToString(sqlcRow.ID), // Link it back to the parent post
+			ImageURL: *sqlcRow.CoverImageUrl,
+			AltText:  nil, // Default empty
+		}
+		if sqlcRow.CoverImageAlt != nil {
+			convertedPost.CoverImage.AltText = sqlcRow.CoverImageAlt
+		}
+	}
+
+	return convertedPost
+}
+
 func ConvertSearchPostRow(sqlcRow SearchPostsRow) domain.Post {
 	convertedPost := domain.Post{
 		ID:        PgUUIDToString(sqlcRow.ID),

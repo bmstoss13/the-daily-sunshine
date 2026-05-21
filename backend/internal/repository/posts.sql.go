@@ -7,6 +7,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -218,7 +219,7 @@ SELECT
     pv.youtube_video_id,
     pv.video_metadata
 FROM posts p
-LEFT JOIN profiles pr ON p.publisher_id = pr.id
+LEFT JOIN profiles pr ON p.publisher_id = pr.id 
 LEFT JOIN post_images pi ON p.id = pi.post_id AND pi.is_cover_image = true
 LEFT JOIN post_videos pv ON p.id = pv.post_id
 WHERE p.id = $1 AND p.deleted_at IS NULL LIMIT 1
@@ -299,7 +300,7 @@ SELECT
     pv.youtube_video_id,
     pv.video_metadata
 FROM posts p
-LEFT JOIN profiles pr ON p.publisher_id = pr.id
+LEFT JOIN profiles pr ON p.publisher_id = pr.id 
 LEFT JOIN post_images pi ON p.id = pi.post_id AND pi.is_cover_image = true
 LEFT JOIN post_videos pv ON p.id = pv.post_id
 WHERE p.slug = $1 AND p.deleted_at IS NULL LIMIT 1
@@ -360,6 +361,90 @@ func (q *Queries) SelectPostBySlug(ctx context.Context, slug string) (SelectPost
 		&i.VideoMetadata,
 	)
 	return i, err
+}
+
+const selectPostsOfTheDay = `-- name: SelectPostsOfTheDay :many
+SELECT 
+    p.id,
+    p.publisher_id, 
+    p.title,
+    p.subtitle,
+    p.slug,
+    p.post_content,
+    p.status,       
+    p.num_rays,
+    p.num_comments,
+    p.created_at,
+    pi.image_url AS cover_image_url,
+    pi.alt_text AS cover_image_alt,
+    pr.username AS publisher_username,
+    pr.profile_image_url AS publisher_avatar
+FROM posts p
+LEFT JOIN post_images pi ON p.id = pi.post_id AND pi.is_cover_image = true
+LEFT JOIN profiles pr ON p.publisher_id = pr.id
+WHERE p.deleted_at IS NULL AND p.status = 'published'
+AND p.created_at >= $1
+AND p.created_at < $2
+ORDER BY p.num_rays DESC, p.created_at DESC
+LIMIT 10
+`
+
+type SelectPostsOfTheDayRow struct {
+	ID                pgtype.UUID        `json:"id"`
+	PublisherID       pgtype.UUID        `json:"publisher_id"`
+	Title             string             `json:"title"`
+	Subtitle          *string            `json:"subtitle"`
+	Slug              string             `json:"slug"`
+	PostContent       []byte             `json:"post_content"`
+	Status            PostStatus         `json:"status"`
+	NumRays           int32              `json:"num_rays"`
+	NumComments       int32              `json:"num_comments"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	CoverImageUrl     *string            `json:"cover_image_url"`
+	CoverImageAlt     *string            `json:"cover_image_alt"`
+	PublisherUsername *string            `json:"publisher_username"`
+	PublisherAvatar   *string            `json:"publisher_avatar"`
+}
+
+type SelectPostsOfTheDayParams struct {
+	CreatedAt   time.Time `json:"created_at"`
+	CreatedAt_2 time.Time `json:"created_at_2"`
+}
+
+// To update later to include videos
+func (q *Queries) SelectPostsOfTheDay(ctx context.Context, arg SelectPostsOfTheDayParams) ([]SelectPostsOfTheDayRow, error) {
+	rows, err := q.db.Query(ctx, selectPostsOfTheDay, arg.CreatedAt, arg.CreatedAt_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SelectPostsOfTheDayRow
+	for rows.Next() {
+		var i SelectPostsOfTheDayRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublisherID,
+			&i.Title,
+			&i.Subtitle,
+			&i.Slug,
+			&i.PostContent,
+			&i.Status,
+			&i.NumRays,
+			&i.NumComments,
+			&i.CreatedAt,
+			&i.CoverImageUrl,
+			&i.CoverImageAlt,
+			&i.PublisherUsername,
+			&i.PublisherAvatar,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const softDeletePost = `-- name: SoftDeletePost :one

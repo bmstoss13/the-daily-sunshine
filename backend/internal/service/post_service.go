@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/bmstoss13/the-daily-sunshine/internal/domain"
 )
@@ -25,6 +26,7 @@ type PostRepository interface {
 	GetPostByID(ctx context.Context, userID string, postID string) (domain.Post, error)
 	GetPostBySlug(ctx context.Context, userID string, slug string) (domain.Post, error)
 	GetListOfPosts(ctx context.Context, userID string, limit int32, offset int32) ([]domain.Post, error)
+	GetPostsForToday(ctx context.Context, userID string, startOfDay time.Time, endOfDay time.Time) ([]domain.Post, error)
 	CreatePost(ctx context.Context, userID string, newPost domain.Post) (domain.Post, error)
 	UpdatePost(ctx context.Context, userID string, postWithUpdates domain.Post) (domain.Post, error)
 	SoftDeletePost(ctx context.Context, userID string, postID string) (domain.Post, error)
@@ -55,19 +57,29 @@ type PostImageStorage interface {
 	DeletePicture(ctx context.Context, fullImageURL string) error
 }
 
+type PostCache interface {
+	GetTopPostsOfDay(ctx context.Context, dayKey string) ([]domain.Post, bool, error)
+	SetTopPostsOfDay(ctx context.Context, dayKey string, posts []domain.Post, ttl time.Duration) error
+	InvalidateTopPostsOfDay(ctx context.Context, dayKey string) error
+}
+
 type PostService struct {
 	repo         PostRepository
 	imageRepo    PostImageRepository
 	videoRepo    PostVideoRepository
 	imageStorage PostImageStorage
+	cache        PostCache
 }
 
-func NewPostService(repo PostRepository, imageRepo PostImageRepository, videoRepo PostVideoRepository, imageStorage PostImageStorage) *PostService {
+const appDayLocationName = "America/New_York"
+
+func NewPostService(repo PostRepository, imageRepo PostImageRepository, videoRepo PostVideoRepository, imageStorage PostImageStorage, cache PostCache) *PostService {
 	return &PostService{
 		repo:         repo,
 		imageRepo:    imageRepo,
 		videoRepo:    videoRepo,
 		imageStorage: imageStorage,
+		cache:        cache,
 	}
 }
 
@@ -107,6 +119,65 @@ func (s *PostService) FetchListOfPosts(ctx context.Context, userID string, limit
 	}
 
 	return postList, nil
+}
+
+func topPostsDayWindow(now time.Time) (string, time.Time, time.Time, error) {
+	loc, err := time.LoadLocation(appDayLocationName)
+	if err != nil {
+		return "", time.Time{}, time.Time{}, fmt.Errorf("[post_service.go] topPostsDayWindow: failed to load location %s: %w", appDayLocationName, err)
+	}
+
+	localNow := now.In(loc)
+	startOfDayLocal := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, loc)
+	endOfDayLocal := startOfDayLocal.Add(24 * time.Hour)
+	dayKey := "top-posts:" + startOfDayLocal.Format("2006-01-02")
+
+	return dayKey, startOfDayLocal.UTC(), endOfDayLocal.UTC(), nil
+}
+
+func (s *PostService) FetchTopPostsOfTheDay(ctx context.Context, userID string) ([]domain.Post, error) {
+	dayKey, startOfDay, endOfDay, err := topPostsDayWindow(time.Now())
+	if err != nil {
+		return []domain.Post{}, err
+	}
+
+	redisPostList, found, err := s.cache.GetTopPostsOfDay(ctx, dayKey)
+	if err != nil {
+		log.Printf("[post_service.go] FetchTopPostsOfTheDay: failed to fetch top posts of the day from redis: %v", err)
+	}
+
+	if found {
+		return redisPostList, nil
+	}
+
+	dbPostList, dbErr := s.repo.GetPostsForToday(ctx, userID, startOfDay, endOfDay)
+	if dbErr != nil {
+		return []domain.Post{}, fmt.Errorf("[post_service.go] FetchTopPostsOfTheDay: failed to fetch top posts of the day from db: %w", dbErr)
+	}
+
+	for i := range dbPostList {
+		postImages, imgErr := s.imageRepo.GetPostImagesByPost(ctx, userID, dbPostList[i].ID)
+		if imgErr != nil {
+			fmt.Printf("failed to fetch images for post %s: %s", dbPostList[i].ID, imgErr)
+		}
+		dbPostList[i].Images = append(dbPostList[i].Images, postImages...)
+
+		postVideo, vidErr := s.videoRepo.GetPostVideoByPost(ctx, userID, dbPostList[i].ID)
+		if vidErr != nil {
+			fmt.Printf("failed to fetch video for post %v: %v", dbPostList[i].ID, vidErr)
+		}
+		if postVideo != (domain.PostVideo{}) {
+			dbPostList[i].Video = &postVideo
+		}
+	}
+
+	// setting ttl to 1 hour. This does not need to be super active and can honestly be a greater value if need be
+	redisErr := s.cache.SetTopPostsOfDay(ctx, dayKey, dbPostList, time.Hour*1)
+	if redisErr != nil {
+		fmt.Printf("[post_service.go] FetchTopPostsOfTheDay: failed to set top posts in redis: %v", redisErr)
+	}
+
+	return dbPostList, nil
 }
 
 func (s *PostService) IsSlugTaken(ctx context.Context, slug string) (bool, error) {

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/bmstoss13/the-daily-sunshine/internal/domain"
 	"github.com/jackc/pgx/v5"
@@ -74,6 +75,30 @@ func (r *PostgresPostRepository) GetListOfPosts(ctx context.Context, userID stri
 
 		for i, p := range sqlcPostList {
 			postList[i] = ConvertRichPostForList(p)
+		}
+		return nil
+	})
+
+	return postList, err
+}
+
+func (r *PostgresPostRepository) GetPostsForToday(ctx context.Context, userID string, startOfDay time.Time, endOfDay time.Time) ([]domain.Post, error) {
+	var postList []domain.Post
+	err := WithRLS(ctx, r.db, userID, func(tx pgx.Tx) error {
+		q := New(tx)
+
+		sqlcPostList, listErr := q.SelectPostsOfTheDay(ctx, SelectPostsOfTheDayParams{
+			CreatedAt:   startOfDay,
+			CreatedAt_2: endOfDay,
+		})
+		if listErr != nil {
+			return fmt.Errorf("[post_repo.go] GetPostsForToday: An error occurred while retrieving list of post for today: %w", listErr)
+		}
+
+		postList = make([]domain.Post, len(sqlcPostList))
+
+		for i, p := range sqlcPostList {
+			postList[i] = ConvertRichPostForDay(p)
 		}
 		return nil
 	})
