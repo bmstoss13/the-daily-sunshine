@@ -7,7 +7,6 @@ package repository
 
 import (
 	"context"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -20,6 +19,24 @@ SELECT EXISTS(
 
 func (q *Queries) CheckSlugExists(ctx context.Context, slug string) (bool, error) {
 	row := q.db.QueryRow(ctx, checkSlugExists, slug)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const checkSlugExistsOtherPosts = `-- name: CheckSlugExistsOtherPosts :one
+SELECT EXISTS(
+    SELECT 1 FROM posts WHERE slug = $1 and id != $2
+)
+`
+
+type CheckSlugExistsOtherPostsParams struct {
+	Slug string      `json:"slug"`
+	ID   pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) CheckSlugExistsOtherPosts(ctx context.Context, arg CheckSlugExistsOtherPostsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, checkSlugExistsOtherPosts, arg.Slug, arg.ID)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -389,6 +406,11 @@ ORDER BY p.num_rays DESC, p.created_at DESC
 LIMIT 10
 `
 
+type SelectPostsOfTheDayParams struct {
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	CreatedAt_2 pgtype.Timestamptz `json:"created_at_2"`
+}
+
 type SelectPostsOfTheDayRow struct {
 	ID                pgtype.UUID        `json:"id"`
 	PublisherID       pgtype.UUID        `json:"publisher_id"`
@@ -404,11 +426,6 @@ type SelectPostsOfTheDayRow struct {
 	CoverImageAlt     *string            `json:"cover_image_alt"`
 	PublisherUsername *string            `json:"publisher_username"`
 	PublisherAvatar   *string            `json:"publisher_avatar"`
-}
-
-type SelectPostsOfTheDayParams struct {
-	CreatedAt   time.Time `json:"created_at"`
-	CreatedAt_2 time.Time `json:"created_at_2"`
 }
 
 // To update later to include videos

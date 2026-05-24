@@ -87,9 +87,19 @@ func (r *PostgresPostRepository) GetPostsForToday(ctx context.Context, userID st
 	err := WithRLS(ctx, r.db, userID, func(tx pgx.Tx) error {
 		q := New(tx)
 
+		pgStartOfDay := TimeToPgTimestamp(startOfDay)
+		if !pgStartOfDay.Valid {
+			return fmt.Errorf("[post_repo.go] GetPostsForToday: failed to convert start of day to pgtype.timestamptz. Start of day date: %v", pgStartOfDay)
+		}
+
+		pgEndOfDay := TimeToPgTimestamp(endOfDay)
+		if !pgStartOfDay.Valid {
+			return fmt.Errorf("[post_repo.go] GetPostsForToday: failed to convert end of day to pgtype.timestamptz. End of day date: %v", pgEndOfDay)
+		}
+
 		sqlcPostList, listErr := q.SelectPostsOfTheDay(ctx, SelectPostsOfTheDayParams{
-			CreatedAt:   startOfDay,
-			CreatedAt_2: endOfDay,
+			CreatedAt:   pgStartOfDay,
+			CreatedAt_2: pgEndOfDay,
 		})
 		if listErr != nil {
 			return fmt.Errorf("[post_repo.go] GetPostsForToday: An error occurred while retrieving list of post for today: %w", listErr)
@@ -250,6 +260,22 @@ func (r *PostgresPostRepository) CheckSlugExists(ctx context.Context, slug strin
 	exists, err := q.CheckSlugExists(ctx, slug)
 	if err != nil {
 		return false, fmt.Errorf("[post_repo.go] CheckIfSlugExists: failed to check slug: %w", err)
+	}
+
+	return exists, nil
+}
+
+func (r *PostgresPostRepository) CheckSlugExistsOtherPosts(ctx context.Context, slug string, postID string) (bool, error) {
+	q := New(r.db)
+
+	pgID, idErr := StringToPgUUID(postID)
+	if idErr != nil {
+		return false, fmt.Errorf("[post_repo.go] CheckSlugExistsOtherPosts: failed to convert post id: %w", idErr)
+	}
+
+	exists, err := q.CheckSlugExistsOtherPosts(ctx, CheckSlugExistsOtherPostsParams{slug, pgID})
+	if err != nil {
+		return false, fmt.Errorf("[post_repo.go] CheckSlugExistsOtherPosts: failed to check slug: %w", err)
 	}
 
 	return exists, nil

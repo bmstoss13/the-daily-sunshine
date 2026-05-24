@@ -138,3 +138,8 @@ AND p.created_at >= $1
 AND p.created_at < $2
 ORDER BY p.num_rays DESC, p.created_at DESC
 LIMIT 10;
+
+-- name: CheckSlugExistsOtherPosts :one
+SELECT EXISTS(
+    SELECT 1 FROM posts WHERE slug = $1 and id != $2
+);
