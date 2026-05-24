@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/bmstoss13/the-daily-sunshine/internal/domain"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -29,6 +30,24 @@ func PgUUIDToString(pgUUID pgtype.UUID) string {
 	b := pgUUID.Bytes
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
 		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+func TimeToPgTimestamp(goTime time.Time) pgtype.Timestamptz {
+	if goTime.IsZero() {
+		return pgtype.Timestamptz{Valid: false}
+	}
+	return pgtype.Timestamptz{
+		Time:  goTime,
+		Valid: true,
+	}
+}
+
+func PgTimestampToTime(pgTimestamp pgtype.Timestamptz) (time.Time, error) {
+	if !pgTimestamp.Valid {
+		return time.Time{}, fmt.Errorf("[mappers.go] PgTimestampToTime: Invalid pgtype.Timestamp")
+	}
+
+	return pgTimestamp.Time, nil
 }
 
 func ConvertProfile(sqlcProfile Profile) domain.Profile {

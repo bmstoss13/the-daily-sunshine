@@ -247,3 +247,24 @@ func (r *PostgresProfileRepository) SetProfileSubscriberTier(ctx context.Context
 
 	return updatedProfile, err
 }
+
+func (r *PostgresProfileRepository) GetProfileSubscriberTier(ctx context.Context, userID string) (domain.SubscriberTier, error) {
+	var subscriberTier domain.SubscriberTier
+	err := WithRLS(ctx, r.db, userID, func(tx pgx.Tx) error {
+		q := New(tx)
+		pgId, err := StringToPgUUID(userID)
+		if err != nil {
+			return fmt.Errorf("[profile_repo.go] GetProfileSubscriberTier: error converting userID to pgtype.UUID: %w", err)
+		}
+
+		pgSubscriberTier, tierErr := q.GetSubscriberTier(ctx, pgId)
+		if tierErr != nil {
+			return fmt.Errorf("[profile_repo.go] GetProfileSubscriberTier: failed to get user subscriber tier: %w", tierErr)
+		}
+
+		subscriberTier = domain.SubscriberTier(pgSubscriberTier)
+		return nil
+	})
+
+	return subscriberTier, err
+}

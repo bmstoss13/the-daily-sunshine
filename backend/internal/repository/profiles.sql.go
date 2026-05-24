@@ -125,6 +125,18 @@ func (q *Queries) GetProfileByUsername(ctx context.Context, username string) (Pr
 	return i, err
 }
 
+const getSubscriberTier = `-- name: GetSubscriberTier :one
+SELECT subscriber_tier FROM profiles
+WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetSubscriberTier(ctx context.Context, id pgtype.UUID) (SubscriberTier, error) {
+	row := q.db.QueryRow(ctx, getSubscriberTier, id)
+	var subscriber_tier SubscriberTier
+	err := row.Scan(&subscriber_tier)
+	return subscriber_tier, err
+}
+
 const listProfiles = `-- name: ListProfiles :many
 SELECT id, first_name, last_name, username, profile_image_url, profile_bio, num_rays_received, subscriber_tier, app_role, created_at, updated_at, deleted_at FROM profiles
 WHERE deleted_at IS NULL

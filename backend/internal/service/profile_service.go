@@ -8,7 +8,7 @@ import (
 	"github.com/bmstoss13/the-daily-sunshine/internal/domain"
 )
 
-type ProfileRepository interface {
+type IProfileRepository interface {
 	GetProfileFromID(ctx context.Context, userID string, targetProfileID string) (domain.Profile, error)
 	GetProfileFromUsername(ctx context.Context, userID string, username string) (domain.Profile, error)
 	CheckProfileUsernameExists(ctx context.Context, userID string, username string) (bool, error)
@@ -18,19 +18,20 @@ type ProfileRepository interface {
 	SoftDeleteProfile(ctx context.Context, userID string) (domain.Profile, error)
 	PermanentlyDeleteProfile(ctx context.Context, userID string) (domain.Profile, error)
 	SetProfileSubscriberTier(ctx context.Context, actorUserID string, userID string, tier domain.SubscriberTier) (domain.Profile, error)
+	GetProfileSubscriberTier(ctx context.Context, userID string) (domain.SubscriberTier, error)
 }
 
-type ProfileImageStorage interface {
+type IProfileImageStorage interface {
 	UploadPicture(ctx context.Context, fileBytes []byte, fileName string) (string, error)
 	DeletePicture(ctx context.Context, fullImageURL string) error
 }
 
 type ProfileService struct {
-	repo         ProfileRepository
-	imageStorage ProfileImageStorage
+	repo         IProfileRepository
+	imageStorage IProfileImageStorage
 }
 
-func NewProfileService(repo ProfileRepository, imageStorage ProfileImageStorage) *ProfileService {
+func NewProfileService(repo IProfileRepository, imageStorage IProfileImageStorage) *ProfileService {
 	return &ProfileService{
 		repo:         repo,
 		imageStorage: imageStorage,
@@ -233,5 +234,21 @@ func (s *ProfileService) SetSubscriberTier(ctx context.Context, actorUserID stri
 	}
 
 	return updatedProfile, nil
+
+}
+
+func (s *ProfileService) GetSubscriberTier(ctx context.Context, userId string) (domain.SubscriberTier, error) {
+	if userId == "" {
+		var zeroTier domain.SubscriberTier
+		return zeroTier, fmt.Errorf("[profile_service.go] GetSubscriberTier: user ID required")
+	}
+
+	subscriberTier, err := s.repo.GetProfileSubscriberTier(ctx, userId)
+	if err != nil {
+		var zeroTier domain.SubscriberTier
+		return zeroTier, fmt.Errorf("[profile_service.go] GetSubscriberTier: failed to get subscriber tier: %w", err)
+	}
+
+	return subscriberTier, nil
 
 }

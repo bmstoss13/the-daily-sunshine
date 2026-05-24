@@ -19,6 +19,7 @@ type mockProfileRepo struct {
 	mockProfileList               []domain.Profile
 	mockUsernameExists            bool
 	mockSubscriberTierProfile     domain.Profile
+	mockSubscriberTier            domain.SubscriberTier
 	mockRetrieveError             error
 	mockGetByIDError              error
 	mockCheckError                error
@@ -27,6 +28,7 @@ type mockProfileRepo struct {
 	mockSoftDeleteError           error
 	mockPermanentDeleteError      error
 	mockSetSubscriberTierError    error
+	mockGetSubscriberTierError    error
 
 	getByIDCalled           bool
 	getByUsernameCalled     bool
@@ -172,6 +174,21 @@ func (m *mockProfileRepo) SetProfileSubscriberTier(ctx context.Context, adminID 
 		return m.mockSubscriberTierProfile, nil
 	}
 	return m.mockProfile, nil
+}
+
+func (m *mockProfileRepo) GetProfileSubscriberTier(_ context.Context, userID string) (domain.SubscriberTier, error) {
+	m.getByIDCalled = true
+	m.lastUserID = userID
+	if m.mockGetByIDError != nil {
+		var zeroTier domain.SubscriberTier
+		return zeroTier, m.mockGetSubscriberTierError
+	}
+
+	var zeroTier domain.SubscriberTier
+	if m.mockSubscriberTier != (zeroTier) {
+		return m.mockSubscriberTier, nil
+	}
+	return m.mockSubscriberTier, m.mockRetrieveError
 }
 
 func TestProfileService_FetchProfileByID(t *testing.T) {

@@ -67,3 +67,7 @@ SET
     updated_at = NOW()
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING *;
+
+-- name: GetSubscriberTier :one
+SELECT subscriber_tier FROM profiles
+WHERE id = $1 LIMIT 1;
