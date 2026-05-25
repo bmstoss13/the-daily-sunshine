@@ -9,6 +9,7 @@ import (
 	"github.com/bmstoss13/the-daily-sunshine/internal/config"
 	"github.com/bmstoss13/the-daily-sunshine/internal/handler"
 	"github.com/bmstoss13/the-daily-sunshine/internal/middleware"
+	"github.com/bmstoss13/the-daily-sunshine/internal/redis"
 	"github.com/bmstoss13/the-daily-sunshine/internal/repository"
 	"github.com/bmstoss13/the-daily-sunshine/internal/service"
 	"github.com/bmstoss13/the-daily-sunshine/internal/storage"
@@ -30,18 +31,25 @@ func main() {
 		log.Fatalf("Failed to initialize Cloudflare R2: %v", err)
 	}
 
-	//Initialize Upstash Redis
-	// redisClient, err := config.InitRedis(ctx)
-	// if err != nil {
-	// 	log.Fatalf("Failed to initialize Redis: %v", err)
-	// }
+	// Initialize Upstash Redis
+	redisClient, err := config.InitRedis(ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize Redis: %v", err)
+	}
 
 	imageStorage := storage.NewCloudflareR2Storage(r2Client)
+	serverCache := redis.NewRedisPostCache(redisClient)
 
 	//Create DB layer
 	profileRepo := repository.NewPostgresProfileRepository(config.DB)
 	profileSvc := service.NewProfileService(profileRepo, imageStorage)
 	profileHandler := handler.NewProfileHandler(profileSvc)
+
+	postRepo := repository.NewPostgresPostRepository(config.DB)
+	postImageRepo := repository.NewPostgresPostImageRepository(config.DB)
+	postVideoRepo := repository.NewPostgresPostVideoRepository(config.DB)
+	postService := service.NewPostService(postRepo, postImageRepo, postVideoRepo, imageStorage, serverCache)
+	postHandler := handler.NewPostHandler(postService)
 
 	router := gin.Default()
 	api := router.Group("/api/v1")
@@ -56,10 +64,14 @@ func main() {
 		publicProfiles.GET("/list", profileHandler.GetProfileList) // example: /api/v1/profiles/list?limit=20&offset=20
 	}
 
-	// publicPosts := api.Group("/posts")
-	// {
-
-	// }
+	publicPosts := api.Group("/posts")
+	{
+		publicPosts.GET("/id/:id", postHandler.GetPostByID)
+		publicPosts.GET("/slug/:slug", postHandler.GetPostBySlug)
+		publicPosts.GET("/check-slug", postHandler.GetSlugAvailability)
+		publicPosts.GET("/list", postHandler.GetListOfPosts)
+		publicPosts.GET("/top", postHandler.GetTopPostsOfDay)
+	}
 
 	// PROTECTED ROUTES (Require valid JWT)
 	protected := api.Group("/")
@@ -69,6 +81,11 @@ func main() {
 		protected.PUT("/profiles", profileHandler.UpdateProfileHandler)
 		protected.DELETE("/profiles", profileHandler.PermanentlyDeleteProfile)
 		protected.PATCH("/profiles/deactivate", profileHandler.SoftDeleteProfileHandler)
+
+		protected.POST("/posts", postHandler.CreatePost)
+		protected.PUT("/posts/:id", postHandler.UpdatePost)
+		protected.DELETE("/posts/:id", postHandler.DeletePost)
+		protected.PATCH("/posts/:id", postHandler.SoftDeletePost)
 	}
 
 	protectedAdmin := api.Group("/admin")
