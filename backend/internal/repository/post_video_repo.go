@@ -54,7 +54,10 @@ func (r *PostgresPostVideoRepository) GetPostVideoByPost(ctx context.Context, us
 
 		sqlcPostVideo, err := q.SelectPostVideoByPostID(ctx, pgPostID)
 		if err != nil {
-			return fmt.Errorf("[post_video_repo.go] GetPostByPost: An error occurred while retrieving post video from post: %w", err)
+			if err == pgx.ErrNoRows {
+				return nil
+			}
+			return fmt.Errorf("[post_video_repo.go] GetPosVideoByPost: An error occurred while retrieving post video from post: %w", err)
 		}
 
 		fetchedPostVideo = ConvertPostVideo(sqlcPostVideo)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/bmstoss13/the-daily-sunshine/internal/config"
@@ -31,14 +32,22 @@ func main() {
 		log.Fatalf("Failed to initialize Cloudflare R2: %v", err)
 	}
 
-	// Initialize Upstash Redis
-	redisClient, err := config.InitRedis(ctx)
-	if err != nil {
-		log.Fatalf("Failed to initialize Redis: %v", err)
-	}
-
 	imageStorage := storage.NewCloudflareR2Storage(r2Client)
-	serverCache := redis.NewRedisPostCache(redisClient)
+
+	enableRedisCache := os.Getenv("ENABLE_REDIS_CACHE") == "true"
+	var serverCache service.IPostCache
+
+	// Initialize Upstash Redis
+	if enableRedisCache {
+		redisClient, err := config.InitRedis(ctx)
+		if err != nil {
+			log.Fatalf("Failed to initialize Redis: %v", err)
+		}
+		serverCache = redis.NewRedisPostCache(redisClient)
+	} else {
+		serverCache = redis.NewNoopPostCache()
+		log.Println("Redis cache disabled; using no-op cache.")
+	}
 
 	//Create DB layer
 	profileRepo := repository.NewPostgresProfileRepository(config.DB)

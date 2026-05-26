@@ -9,27 +9,133 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ProfilesRouteRouteImport } from './routes/profiles/route'
+import { Route as PostsRouteRouteImport } from './routes/posts/route'
+import { Route as AboutRouteRouteImport } from './routes/about/route'
+import { Route as IndexRouteRouteImport } from './routes/index/route'
+import { Route as PostsSlugRouteImport } from './routes/posts/$slug'
 
-export interface FileRoutesByFullPath {}
-export interface FileRoutesByTo {}
+const ProfilesRouteRoute = ProfilesRouteRouteImport.update({
+  id: '/profiles',
+  path: '/profiles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PostsRouteRoute = PostsRouteRouteImport.update({
+  id: '/posts',
+  path: '/posts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRouteRoute = AboutRouteRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRouteRoute = IndexRouteRouteImport.update({
+  id: '/',
+  path: '',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PostsSlugRoute = PostsSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => PostsRouteRoute,
+} as any)
+
+export interface FileRoutesByFullPath {
+  '/': typeof IndexRouteRoute
+  '/about': typeof AboutRouteRoute
+  '/posts': typeof PostsRouteRouteWithChildren
+  '/profiles': typeof ProfilesRouteRoute
+  '/posts/$slug': typeof PostsSlugRoute
+}
+export interface FileRoutesByTo {
+  '/': typeof IndexRouteRoute
+  '/about': typeof AboutRouteRoute
+  '/posts': typeof PostsRouteRouteWithChildren
+  '/profiles': typeof ProfilesRouteRoute
+  '/posts/$slug': typeof PostsSlugRoute
+}
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRouteRoute
+  '/about': typeof AboutRouteRoute
+  '/posts': typeof PostsRouteRouteWithChildren
+  '/profiles': typeof ProfilesRouteRoute
+  '/posts/$slug': typeof PostsSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: never
+  fullPaths: '/' | '/about' | '/posts' | '/profiles' | '/posts/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: never
-  id: '__root__'
+  to: '/' | '/about' | '/posts' | '/profiles' | '/posts/$slug'
+  id: '__root__' | '/' | '/about' | '/posts' | '/profiles' | '/posts/$slug'
   fileRoutesById: FileRoutesById
 }
-export interface RootRouteChildren {}
-
-declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {}
+export interface RootRouteChildren {
+  IndexRouteRoute: typeof IndexRouteRoute
+  AboutRouteRoute: typeof AboutRouteRoute
+  PostsRouteRoute: typeof PostsRouteRouteWithChildren
+  ProfilesRouteRoute: typeof ProfilesRouteRoute
 }
 
-const rootRouteChildren: RootRouteChildren = {}
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/profiles': {
+      id: '/profiles'
+      path: '/profiles'
+      fullPath: '/profiles'
+      preLoaderRoute: typeof ProfilesRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/posts': {
+      id: '/posts'
+      path: '/posts'
+      fullPath: '/posts'
+      preLoaderRoute: typeof PostsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/posts/$slug': {
+      id: '/posts/$slug'
+      path: '/$slug'
+      fullPath: '/posts/$slug'
+      preLoaderRoute: typeof PostsSlugRouteImport
+      parentRoute: typeof PostsRouteRoute
+    }
+  }
+}
+
+interface PostsRouteRouteChildren {
+  PostsSlugRoute: typeof PostsSlugRoute
+}
+
+const PostsRouteRouteChildren: PostsRouteRouteChildren = {
+  PostsSlugRoute: PostsSlugRoute,
+}
+
+const PostsRouteRouteWithChildren = PostsRouteRoute._addFileChildren(
+  PostsRouteRouteChildren,
+)
+
+const rootRouteChildren: RootRouteChildren = {
+  IndexRouteRoute: IndexRouteRoute,
+  AboutRouteRoute: AboutRouteRoute,
+  PostsRouteRoute: PostsRouteRouteWithChildren,
+  ProfilesRouteRoute: ProfilesRouteRoute,
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
