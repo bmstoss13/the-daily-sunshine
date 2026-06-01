@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiUrl } from "../utils/api";
 import axios from "axios";
 import type { Profile } from "../types/Profile";
 
@@ -12,7 +11,7 @@ export function useProfileByID(profileID: string) {
                 return
             }
             try {
-                const { data } = await axios.get<Profile>(`${apiUrl}/profiles/id/${profileID}`)
+                const { data } = await axios.get<Profile>(`api/profiles/id/${profileID}`)
                 return data
             } catch (e) {
                 if(axios.isAxiosError(e)) {
@@ -39,7 +38,7 @@ export function useProfileByUsername(username: string) {
                 return
             }
             try {
-                const { data } = await axios.get<Profile>(`${apiUrl}/username/${username}`)
+                const { data } = await axios.get<Profile>(`api/username/${username}`)
                 return data
             } catch (e) {
                 if(axios.isAxiosError(e)) {
