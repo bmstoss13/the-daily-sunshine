@@ -400,16 +400,9 @@ FROM posts p
 LEFT JOIN post_images pi ON p.id = pi.post_id AND pi.is_cover_image = true
 LEFT JOIN profiles pr ON p.publisher_id = pr.id
 WHERE p.deleted_at IS NULL AND p.status = 'published'
-AND p.created_at >= $1
-AND p.created_at < $2
 ORDER BY p.num_rays DESC, p.created_at DESC
 LIMIT 10
 `
-
-type SelectPostsOfTheDayParams struct {
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	CreatedAt_2 pgtype.Timestamptz `json:"created_at_2"`
-}
 
 type SelectPostsOfTheDayRow struct {
 	ID                pgtype.UUID        `json:"id"`
@@ -429,8 +422,10 @@ type SelectPostsOfTheDayRow struct {
 }
 
 // To update later to include videos
-func (q *Queries) SelectPostsOfTheDay(ctx context.Context, arg SelectPostsOfTheDayParams) ([]SelectPostsOfTheDayRow, error) {
-	rows, err := q.db.Query(ctx, selectPostsOfTheDay, arg.CreatedAt, arg.CreatedAt_2)
+// AND p.created_at >= $1
+// AND p.created_at < $2
+func (q *Queries) SelectPostsOfTheDay(ctx context.Context) ([]SelectPostsOfTheDayRow, error) {
+	rows, err := q.db.Query(ctx, selectPostsOfTheDay)
 	if err != nil {
 		return nil, err
 	}

@@ -134,8 +134,8 @@ FROM posts p
 LEFT JOIN post_images pi ON p.id = pi.post_id AND pi.is_cover_image = true
 LEFT JOIN profiles pr ON p.publisher_id = pr.id
 WHERE p.deleted_at IS NULL AND p.status = 'published'
-AND p.created_at >= $1
-AND p.created_at < $2
+-- AND p.created_at >= $1
+-- AND p.created_at < $2
 ORDER BY p.num_rays DESC, p.created_at DESC
 LIMIT 10;
 

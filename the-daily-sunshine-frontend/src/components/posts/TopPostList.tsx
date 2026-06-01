@@ -1,29 +1,24 @@
-import { useTopPosts } from "../../hooks/usePosts"
+import { Link } from "@tanstack/react-router";
 import type { Post } from "../../types/Post"
+import PostCard from "./PostCard";
 
-export default function TopPostList() {
-    const { data, isPending } = useTopPosts() 
+interface TopPostProps{
+    postList: Post[];
+}
+export default function TopPostList({postList }: TopPostProps) {
+    
     return (
         <div>
-            {data !== null && !isPending && (
-                <div>
-                    {Array.isArray(data) ? data.map((post: Post) => {
-                        return (
-                            <div 
-                                key={post.id}
-                                className="flex flex-col"
-                            >
-                                <h1 className="font-bold">
-                                    {post.title}
-                                </h1>
-                                <p className="italic">
-                                    {post.subtitle}
-                                </p>
-                            </div>
-                        )
-                    }) : null}
-                </div>
-            )}
+            <div>
+                {Array.isArray(postList) ? postList.map((post: Post) => {
+                    return (
+                        <PostCard
+                            key={post.id} 
+                            post={post}
+                        />
+                    )
+                }) : null}
+            </div>
         </div>
     )
 }

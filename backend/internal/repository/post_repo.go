@@ -97,10 +97,7 @@ func (r *PostgresPostRepository) GetPostsForToday(ctx context.Context, userID st
 			return fmt.Errorf("[post_repo.go] GetPostsForToday: failed to convert end of day to pgtype.timestamptz. End of day date: %v", pgEndOfDay)
 		}
 
-		sqlcPostList, listErr := q.SelectPostsOfTheDay(ctx, SelectPostsOfTheDayParams{
-			CreatedAt:   pgStartOfDay,
-			CreatedAt_2: pgEndOfDay,
-		})
+		sqlcPostList, listErr := q.SelectPostsOfTheDay(ctx)
 		if listErr != nil {
 			return fmt.Errorf("[post_repo.go] GetPostsForToday: An error occurred while retrieving list of post for today: %w", listErr)
 		}

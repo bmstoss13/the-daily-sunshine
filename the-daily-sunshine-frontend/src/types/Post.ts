@@ -1,3 +1,4 @@
+import type { PostImage } from "./PostImage";
 import type { Profile } from "./Profile";
 
 const PostStatuses = {
@@ -22,7 +23,16 @@ export interface Post {
     updated_at: Date;
     deleted_at?: Date;
 
-    publisher: Profile;
+    Publisher: Profile;
+    CoverImage?: PostImage;
+    Images: PostImage[];
+}
+
+export interface NewPostRequest {
+    title: string;
+    subtitle?: string;
+    content?: string;
+    status: PostStatus;
 }
 
 
